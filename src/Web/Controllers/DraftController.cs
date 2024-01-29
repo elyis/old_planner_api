@@ -1,10 +1,12 @@
-using System.Text.RegularExpressions;
+using System.ComponentModel.DataAnnotations;
+using System.Net;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using old_planner_api.src.Domain.Entities.Request;
-using old_planner_api.src.Domain.Entities.Response;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
 using Swashbuckle.AspNetCore.Annotations;
+using webApiTemplate.src.App.IService;
 
 namespace old_planner_api.src.Web.Controllers
 {
@@ -12,85 +14,135 @@ namespace old_planner_api.src.Web.Controllers
     [Route("api")]
     public class DraftController : ControllerBase
     {
-        private readonly IDraftRepository _draftRepository;
         private readonly ITaskRepository _taskRepository;
+        private readonly IBoardRepository _boardRepository;
+        private readonly IUserRepository _userRepository;
+        private readonly IJwtService _jwtService;
 
         public DraftController(
-            IDraftRepository draftRepository,
-            ITaskRepository taskRepository
+            ITaskRepository taskRepository,
+            IBoardRepository boardRepository,
+            IUserRepository userRepository,
+            IJwtService jwtService
         )
         {
-            _draftRepository = draftRepository;
             _taskRepository = taskRepository;
+            _boardRepository = boardRepository;
+            _userRepository = userRepository;
+            _jwtService = jwtService;
         }
 
-        [HttpPost("draft")]
-        [SwaggerOperation("Создать черновик задачи")]
-        [SwaggerResponse(200, Type = typeof(TaskDraftBody))]
+        [HttpPost("draft"), Authorize]
+        [SwaggerOperation("Создать черновик")]
+        [SwaggerResponse(200)]
         [SwaggerResponse(400)]
+        [SwaggerResponse(403)]
 
-        public async Task<IActionResult> CreateDraft(CreateDraftBody draftBody)
+        public async Task<IActionResult> CreateDraft(
+            [FromBody] CreateDraftBody draftBody,
+            [FromQuery, Required] Guid boardId,
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
+        )
         {
-            if(draftBody.HexColor != null && !IsHexFormat(draftBody.HexColor))
-                return BadRequest("hex color does not have hex format");
+            if (draftBody.StartDate != null && !DateTime.TryParse(draftBody?.StartDate, out var _))
+                return BadRequest("Start time format is not correct");
 
-            TaskModel? task = null;
-            if(draftBody.ModifiedTaskId != null && draftBody.ModifiedTaskId != Guid.Empty)
+            if (draftBody.EndDate != null && !DateTime.TryParse(draftBody.EndDate, out var _))
+                return BadRequest("End time format is not correct");
+
+            var tokenInfo = _jwtService.GetTokenInfo(token);
+            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenInfo.UserId, boardId);
+            if (boardMember == null)
+                return Forbid();
+
+            var board = await _boardRepository.GetAsync(boardId);
+            if (board == null)
+                return NotFound();
+
+            TaskModel? draftOfTask = null;
+            if (draftBody.ModifiedTaskId != null)
             {
-                task = await _taskRepository.GetAsync((Guid) draftBody.ModifiedTaskId);
-                if(task == null)
-                    return BadRequest("task id is not found");
+                draftOfTask = await _taskRepository.GetAsync((Guid)draftBody.ModifiedTaskId, false);
+                if (draftOfTask == null)
+                    return BadRequest("taskId is not found");
             }
 
-            var result = await _draftRepository.AddAsync(draftBody, task);
-            return result == null ? BadRequest() : Ok(result.ToTaskDraftBody());
+            var user = await _userRepository.GetAsync(tokenInfo.UserId);
+            var result = await _taskRepository.AddAsync(draftBody, board, user, draftOfTask);
+            return result == null ? BadRequest() : Ok(result.ToTaskBody());
         }
 
-        [HttpPut("draft")]
-        [SwaggerOperation("Обновить черновик")]
-        [SwaggerResponse(200, Type = typeof(TaskDraftBody))]
-        [SwaggerResponse(400)]
-
-        public async Task<IActionResult> UpdateDraft(UpdateDraftBody draftBody)
-        {
-            if(draftBody.HexColor != null && !IsHexFormat(draftBody.HexColor))
-                return BadRequest("hex color does not have hex format");
-
-            var result = await _draftRepository.UpdateAsync(draftBody);
-            return result == null ? BadRequest("id is not found") : Ok(result.ToTaskDraftBody());
-        }
-
-        [HttpDelete("draft")]
-        [SwaggerOperation("Удалить черновик")]
-        [SwaggerResponse(204)]
-        [SwaggerResponse(400)]
-
-        public async Task<IActionResult> RemoveDraft(Guid id)
-        {
-            var result = await _draftRepository.RemoveAsync(id);
-            return result != false ? NoContent() : BadRequest();
-        }
-
-        [HttpGet("drafts")]
+        [HttpGet("drafts"), Authorize]
         [SwaggerOperation("Получить черновики")]
-        [SwaggerResponse(200, Type = typeof(IEnumerable<TaskDraftBody>))]
+        [SwaggerResponse(200)]
         [SwaggerResponse(400)]
+        [SwaggerResponse(403)]
 
-        public async Task<IActionResult> GetDrafts(Guid taskId)
+        public async Task<IActionResult> GetDrafts(
+            [FromQuery, Required] Guid boardId,
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
+        )
         {
-            if(taskId == Guid.Empty)
-                return BadRequest("task id is empty");
+            var tokenInfo = _jwtService.GetTokenInfo(token);
+            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenInfo.UserId, boardId);
+            if (boardMember == null)
+                return Forbid();
 
-            var drafts = await _draftRepository.GetAllByTaskId(taskId);
-            var result = drafts.Select(e => e.ToTaskDraftBody());
+            var tasks = await _taskRepository.GetAllDrafts(boardId, tokenInfo.UserId);
+            var result = tasks.Select(e => e.ToTaskBody());
             return Ok(result);
         }
 
-        private static bool IsHexFormat(string value)
+        [HttpPut("draft/{draftId}"), Authorize]
+        [SwaggerOperation("Преобразовать черновик в задачу")]
+        [SwaggerResponse(200)]
+        [SwaggerResponse(400)]
+        [SwaggerResponse(403)]
+
+        public async Task<IActionResult> ConvertDraftToTask(
+            [FromQuery, Required] Guid boardId,
+            Guid draftId,
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
+        )
         {
-            var hexRegex = new Regex("^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$");
-            return hexRegex.IsMatch(value);
+            var tokenInfo = _jwtService.GetTokenInfo(token);
+            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenInfo.UserId, boardId);
+            if (boardMember == null)
+                return Forbid();
+
+            var user = await _userRepository.GetAsync(tokenInfo.UserId);
+            var result = await _taskRepository.ConvertDraftToTask(draftId, user);
+            return result == null ? BadRequest() : Ok(result.ToTaskBody());
         }
 
+
+        [HttpPut("draft"), Authorize]
+        [SwaggerOperation("Обновить черновик")]
+        [SwaggerResponse(200)]
+        [SwaggerResponse(400)]
+        [SwaggerResponse(403)]
+
+        public async Task<IActionResult> UpdateDraft(
+            UpdateDraftBody draftBody,
+            [FromQuery, Required] Guid boardId,
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
+        )
+        {
+            var tokenInfo = _jwtService.GetTokenInfo(token);
+            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenInfo.UserId, boardId);
+            if (boardMember == null)
+                return Forbid();
+
+            TaskModel? draftOfTask = null;
+            if (draftBody.ModifiedTaskId != null)
+            {
+                draftOfTask = await _taskRepository.GetAsync((Guid)draftBody.ModifiedTaskId, false);
+                if (draftOfTask == null)
+                    return BadRequest("taskId is not found");
+            }
+
+            var result = await _taskRepository.UpdateAsync(draftBody, draftOfTask);
+            return result == null ? BadRequest() : Ok(result.ToTaskBody());
+        }
     }
 }

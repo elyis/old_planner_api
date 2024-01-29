@@ -25,7 +25,6 @@ namespace old_planner_api.src.Web.Controllers
         [SwaggerResponse(400, "Токен не валиден или активирован")]
         [SwaggerResponse(409, "Почта уже существует")]
 
-
         [HttpPost("signup")]
         public async Task<IActionResult> SignUpAsync(SignUpBody signUpBody)
         {

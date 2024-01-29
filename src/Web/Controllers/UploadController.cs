@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using MimeDetective;
 using Swashbuckle.AspNetCore.Annotations;
 using webApiTemplate.src.App.IService;
+using System.ComponentModel.DataAnnotations;
 
 namespace old_planner_api.src.Web.Controllers
 {
@@ -58,7 +59,7 @@ namespace old_planner_api.src.Web.Controllers
         [SwaggerResponse(200, Description = "Успешно", Type = typeof(File))]
         [SwaggerResponse(404, Description = "Неверное имя файла")]
 
-        public async Task<IActionResult> GetProfileIcon(string filename)
+        public async Task<IActionResult> GetProfileIcon([Required] string filename)
             => await GetIconAsync(Constants.localPathToProfileIcons, filename);
 
 

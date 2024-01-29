@@ -2,9 +2,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace old_planner_api.src.Domain.Entities.Request
 {
-    public class TokenBody
+    public class CreateBoardBody
     {
         [Required]
-        public string Value { get; set; }
+        public string Name { get; set; }
     }
 }

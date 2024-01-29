@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using old_planner_api.src.Infrastructure.Data;
 
@@ -10,9 +11,11 @@ using old_planner_api.src.Infrastructure.Data;
 namespace old_planner_api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240125111844_init10")]
+    partial class init10
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "7.0.11");
@@ -29,7 +32,7 @@ namespace old_planner_api.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Boards");
+                    b.ToTable("Board");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardMember", b =>
@@ -48,7 +51,7 @@ namespace old_planner_api.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("BoardMembers");
+                    b.ToTable("BoardMember");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.DeletedTask", b =>
@@ -65,10 +68,45 @@ namespace old_planner_api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TaskId")
-                        .IsUnique();
+                    b.HasIndex("TaskId");
 
                     b.ToTable("DeletedTasks");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskDraft", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EndDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HexColor")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ModifiedTaskId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModifiedTaskId");
+
+                    b.ToTable("Drafts");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
@@ -90,18 +128,12 @@ namespace old_planner_api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("DraftOfTaskId")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("HexColor")
                         .HasMaxLength(7)
                         .HasColumnType("TEXT");
-
-                    b.Property<bool>("IsDraft")
-                        .HasColumnType("INTEGER");
 
                     b.Property<int>("PriorityOrder")
                         .HasColumnType("INTEGER");
@@ -111,6 +143,9 @@ namespace old_planner_api.Migrations
 
                     b.Property<string>("Status")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("TaskId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
@@ -124,7 +159,7 @@ namespace old_planner_api.Migrations
 
                     b.HasIndex("CreatorId");
 
-                    b.HasIndex("DraftOfTaskId");
+                    b.HasIndex("TaskId");
 
                     b.ToTable("Tasks");
                 });
@@ -202,12 +237,21 @@ namespace old_planner_api.Migrations
             modelBuilder.Entity("old_planner_api.src.Domain.Models.DeletedTask", b =>
                 {
                     b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "Task")
-                        .WithOne("DeletedTask")
-                        .HasForeignKey("old_planner_api.src.Domain.Models.DeletedTask", "TaskId")
+                        .WithMany()
+                        .HasForeignKey("TaskId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskDraft", b =>
+                {
+                    b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "ModifiedTask")
+                        .WithMany()
+                        .HasForeignKey("ModifiedTaskId");
+
+                    b.Navigation("ModifiedTask");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
@@ -224,15 +268,15 @@ namespace old_planner_api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "DraftOfTask")
+                    b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "Task")
                         .WithMany()
-                        .HasForeignKey("DraftOfTaskId");
+                        .HasForeignKey("TaskId");
 
                     b.Navigation("Board");
 
                     b.Navigation("Creator");
 
-                    b.Navigation("DraftOfTask");
+                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.Board", b =>
@@ -240,11 +284,6 @@ namespace old_planner_api.Migrations
                     b.Navigation("Members");
 
                     b.Navigation("Tasks");
-                });
-
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
-                {
-                    b.Navigation("DeletedTask");
                 });
 #pragma warning restore 612, 618
         }

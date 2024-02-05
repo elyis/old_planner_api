@@ -13,15 +13,15 @@ namespace old_planner_api.src.Domain.Models
         public string Description { get; set; }
         public int PriorityOrder { get; set; }
         public string Status { get; set; }
-        
+
         [MaxLength(7)]
         public string? HexColor { get; set; }
-        
+
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public DateTime CreatedAtDate { get; set; } = DateTime.UtcNow;
         public bool IsDraft { get; set; }
-        
+
         public TaskModel? DraftOfTask { get; set; }
         public Guid? DraftOfTaskId { get; set; }
 
@@ -32,6 +32,7 @@ namespace old_planner_api.src.Domain.Models
 
         public UserModel Creator { get; set; }
         public Guid CreatorId { get; set; }
+        public TaskChat Chat { get; set; }
 
 
         public TaskBody ToTaskBody()
@@ -46,6 +47,7 @@ namespace old_planner_api.src.Domain.Models
                 Status = Enum.Parse<TaskState>(Status),
                 StartDate = StartDate?.ToString("s"),
                 EndDate = EndDate?.ToString("s"),
+                ChatId = Chat.Id
             };
         }
     }

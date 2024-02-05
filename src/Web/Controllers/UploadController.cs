@@ -54,6 +54,7 @@ namespace old_planner_api.src.Web.Controllers
             return resultUpload;
         }
 
+
         [HttpGet("profileIcon/{filename}")]
         [SwaggerOperation("Получить иконку профиля")]
         [SwaggerResponse(200, Description = "Успешно", Type = typeof(File))]
@@ -61,6 +62,24 @@ namespace old_planner_api.src.Web.Controllers
 
         public async Task<IActionResult> GetProfileIcon([Required] string filename)
             => await GetIconAsync(Constants.localPathToProfileIcons, filename);
+
+
+        [HttpGet("chat/tasks/{filename}")]
+        [SwaggerOperation("Получить файл из чата задачи")]
+        [SwaggerResponse(200, Description = "Успешно", Type = typeof(File))]
+        [SwaggerResponse(404, Description = "Неверное имя файла")]
+
+        public async Task<IActionResult> GetTaskChatAttachments([Required] string filename)
+            => await GetIconAsync(Constants.localPathToTaskChatAttachments, filename);
+
+
+        [HttpGet("chat/private/{filename}")]
+        [SwaggerOperation("Получить файл чата")]
+        [SwaggerResponse(200, Description = "Успешно", Type = typeof(File))]
+        [SwaggerResponse(404, Description = "Неверное имя файла")]
+
+        public async Task<IActionResult> GetPrivateChatAttachments([Required] string filename)
+            => await GetIconAsync(Constants.localPathToPrivateChatAttachments, filename);
 
 
 

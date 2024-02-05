@@ -23,6 +23,8 @@ namespace old_planner_api.src.Domain.Models
         public string? Image { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        public List<ChatMessage> ChatMessages { get; set; } = new();
+
         public ProfileBody ToProfileBody()
         {
             return new ProfileBody
@@ -30,6 +32,15 @@ namespace old_planner_api.src.Domain.Models
                 Email = Email,
                 Role = Enum.Parse<UserRole>(RoleName),
                 UrlIcon = string.IsNullOrEmpty(Image) ? null : $"{Constants.webPathToProfileIcons}{Image}",
+            };
+        }
+
+        public ChatUserInfo ToChatUserInfo()
+        {
+            return new ChatUserInfo
+            {
+                Email = Email,
+                ImageUrl = Image == null ? null : $"{Constants.webPathToProfileIcons}{Image}"
             };
         }
     }

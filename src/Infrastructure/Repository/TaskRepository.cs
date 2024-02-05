@@ -68,6 +68,7 @@ namespace old_planner_api.src.Infrastructure.Repository
 
         public async Task<IEnumerable<TaskModel>> GetAll(Guid boardId, bool isDraft = false)
             => await _context.Tasks
+                .Include(e => e.Chat)
                 .Where(e =>
                     e.IsDraft == isDraft &&
                     e.BoardId == boardId)
@@ -77,6 +78,7 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             if (status == null)
                 return await _context.Tasks
+                .Include(e => e.Chat)
                 .Where(e =>
                     e.IsDraft == isDraft &&
                     e.BoardId == boardId)
@@ -84,6 +86,7 @@ namespace old_planner_api.src.Infrastructure.Repository
 
             var statusString = status.ToString();
             var tasks = await _context.Tasks
+                .Include(e => e.Chat)
                 .Where(e =>
                     e.Status == statusString &&
                     e.IsDraft == isDraft &&
@@ -95,6 +98,7 @@ namespace old_planner_api.src.Infrastructure.Repository
 
         public async Task<IEnumerable<TaskModel>> GetAll(Guid boardId)
             => await _context.Tasks
+                .Include(e => e.Chat)
                 .Where(e => e.BoardId == boardId)
                 .ToListAsync();
 
@@ -153,8 +157,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                     Board = draft.Board,
                     IsDraft = false
                 };
-
-                task = (await _context.Tasks.AddAsync(task))?.Entity;
+                task = await AddTaskAsync(task);
             }
 
             _context.Tasks.Remove(draft);
@@ -194,6 +197,10 @@ namespace old_planner_api.src.Infrastructure.Repository
 
         private async Task<TaskModel?> AddTaskAsync(TaskModel task)
         {
+            task.Chat = new TaskChat
+            {
+                Task = task,
+            };
             task = (await _context.Tasks.AddAsync(task))?.Entity;
             await _context.SaveChangesAsync();
             return task;

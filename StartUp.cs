@@ -8,6 +8,10 @@ using MimeDetective;
 using webApiTemplate.src.App.IService;
 using webApiTemplate.src.App.Service;
 using webApiTemplate.src.Domain.Entities.Config;
+using old_planner_api.src.WebSockets.App.IService;
+using old_planner_api.src.WebSockets.App.Service;
+using old_planner_api.src.App.IService;
+using old_planner_api.src.App.Service;
 
 namespace old_planner_api
 {
@@ -26,8 +30,9 @@ namespace old_planner_api
             var jwtSettings = _config.GetSection("JwtSettings").Get<JwtSettings>() ?? throw new Exception("jwt settings is empty");
             var fileInspector = new ContentInspectorBuilder()
             {
-                Definitions = MimeDetective.Definitions.Default.All()
-            }.Build();
+                Definitions = MimeDetective.Definitions.Default.All(),
+            }
+            .Build();
 
             services.AddControllers(config =>
             {
@@ -90,8 +95,11 @@ namespace old_planner_api
 
             services.AddSingleton<IJwtService, JwtService>();
             services.AddSingleton<IFileUploaderService, LocalFileUploaderService>();
+            services.AddSingleton<ITaskChatService, TaskChatService>();
             services.AddSingleton(fileInspector);
             services.AddSingleton(jwtSettings);
+
+            services.AddScoped<IAuthService, AuthService>();
 
             services.Scan(scan =>
             {
@@ -118,7 +126,7 @@ namespace old_planner_api
                 scan.FromCallingAssembly()
                     .AddClasses(classes =>
                         classes.Where(type =>
-                            type.Name.EndsWith("Service")))
+                            type.Name.EndsWith("Handler")))
                     .AsImplementedInterfaces()
                     .WithScopedLifetime();
             });
@@ -126,6 +134,11 @@ namespace old_planner_api
 
         public void Configure(WebApplication app, IWebHostEnvironment env)
         {
+            var webSocketOptions = new WebSocketOptions
+            {
+                KeepAliveInterval = new TimeSpan(0, 0, 20)
+            };
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -137,6 +150,7 @@ namespace old_planner_api
             app.UseHttpLogging();
             app.UseRequestLocalization();
             app.UseRouting();
+            app.UseWebSockets(webSocketOptions);
 
             app.UseAuthentication();
             app.UseAuthorization();

@@ -1,5 +1,6 @@
 using old_planner_api.src.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace old_planner_api.src.Infrastructure.Data
 {
@@ -9,7 +10,7 @@ namespace old_planner_api.src.Infrastructure.Data
 
         public AppDbContext
         (
-            DbContextOptions<AppDbContext> options, 
+            DbContextOptions<AppDbContext> options,
             IConfiguration config
         ) : base(options)
         {
@@ -21,12 +22,15 @@ namespace old_planner_api.src.Infrastructure.Data
         public DbSet<DeletedTask> DeletedTasks { get; set; }
         public DbSet<Board> Boards { get; set; }
         public DbSet<BoardMember> BoardMembers { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<TaskChat> Chats { get; set; }
+        public DbSet<UserChatHistory> UserChatHistories { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             var connectionString = _config.GetConnectionString("Default");
             optionsBuilder.UseSqlite(connectionString);
-            optionsBuilder.EnableSensitiveDataLogging();
+            // optionsBuilder.EnableSensitiveDataLogging();
             base.OnConfiguring(optionsBuilder);
         }
 
@@ -36,6 +40,12 @@ namespace old_planner_api.src.Infrastructure.Data
             {
                 e.BoardId,
                 e.UserId
+            });
+
+            modelBuilder.Entity<UserChatHistory>().HasKey(e => new
+            {
+                e.ParticipantId,
+                e.ChatId
             });
 
             base.OnModelCreating(modelBuilder);

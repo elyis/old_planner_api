@@ -1,6 +1,5 @@
 using old_planner_api.src.Domain.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace old_planner_api.src.Infrastructure.Data
 {
@@ -22,9 +21,12 @@ namespace old_planner_api.src.Infrastructure.Data
         public DbSet<DeletedTask> DeletedTasks { get; set; }
         public DbSet<Board> Boards { get; set; }
         public DbSet<BoardMember> BoardMembers { get; set; }
+        public DbSet<TaskChatMessage> TaskChatMessages { get; set; }
+        public DbSet<TaskChat> TaskChats { get; set; }
+        public DbSet<TaskChatMembership> TaskChatMemberships { get; set; }
+        public DbSet<Chat> Chats { get; set; }
+        public DbSet<ChatMembership> ChatMemberships { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
-        public DbSet<TaskChat> Chats { get; set; }
-        public DbSet<UserChatHistory> UserChatHistories { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -42,9 +44,15 @@ namespace old_planner_api.src.Infrastructure.Data
                 e.UserId
             });
 
-            modelBuilder.Entity<UserChatHistory>().HasKey(e => new
+            modelBuilder.Entity<TaskChatMembership>().HasKey(e => new
             {
                 e.ParticipantId,
+                e.ChatId
+            });
+
+            modelBuilder.Entity<ChatMembership>().HasKey(e => new
+            {
+                e.UserId,
                 e.ChatId
             });
 

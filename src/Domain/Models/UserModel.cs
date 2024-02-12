@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace old_planner_api.src.Domain.Models
 {
     [Index(nameof(Email), IsUnique = true)]
-    [Index(nameof(Token), IsUnique = true)]
+    [Index(nameof(Token))]
     public class UserModel
     {
         public Guid Id { get; set; }
@@ -23,7 +23,11 @@ namespace old_planner_api.src.Domain.Models
         public string? Image { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public List<ChatMessage> ChatMessages { get; set; } = new();
+        public List<TaskChatMessage> ChatMessages { get; set; } = new();
+        public List<TaskChatMembership> TaskChatMemberships { get; set; } = new();
+        public List<ChatMessage> SentMessages { get; set; } = new();
+
+        public List<ChatMembership> ChatMemberships { get; set; } = new();
 
         public ProfileBody ToProfileBody()
         {
@@ -39,6 +43,7 @@ namespace old_planner_api.src.Domain.Models
         {
             return new ChatUserInfo
             {
+                Id = Id,
                 Email = Email,
                 ImageUrl = Image == null ? null : $"{Constants.webPathToProfileIcons}{Image}"
             };

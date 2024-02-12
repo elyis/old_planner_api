@@ -18,7 +18,10 @@ namespace old_planner_api.src.Domain.Entities.Request
         [EnumDataType(typeof(TaskState))]
         public TaskState Status { get; set; }
 
+        [DataType(DataType.DateTime)]
         public string? StartDate { get; set; }
+
+        [DataType(DataType.DateTime)]
         public string? EndDate { get; set; }
 
         [RegularExpression("^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$")]

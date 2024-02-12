@@ -51,6 +51,44 @@ namespace old_planner_api.Migrations
                     b.ToTable("BoardMembers");
                 });
 
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.Chat", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Chats");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.ChatMembership", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DateLastViewing")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("UserId", "ChatId");
+
+                    b.HasIndex("ChatId");
+
+                    b.ToTable("ChatMemberships");
+                });
+
             modelBuilder.Entity("old_planner_api.src.Domain.Models.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -64,10 +102,10 @@ namespace old_planner_api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("CreatedAtDate")
+                    b.Property<Guid>("SenderId")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("SenderId")
+                    b.Property<DateTime>("SentAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Type")
@@ -114,9 +152,60 @@ namespace old_planner_api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TaskId");
+                    b.HasIndex("TaskId")
+                        .IsUnique();
 
-                    b.ToTable("Chats");
+                    b.ToTable("TaskChats");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChatMembership", b =>
+                {
+                    b.Property<Guid>("ParticipantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("DateLastViewing")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("ParticipantId", "ChatId");
+
+                    b.HasIndex("ChatId");
+
+                    b.ToTable("TaskChatMemberships");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChatMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("TaskChatMessages");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
@@ -177,24 +266,6 @@ namespace old_planner_api.Migrations
                     b.ToTable("Tasks");
                 });
 
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.UserChatHistory", b =>
-                {
-                    b.Property<Guid>("ParticipantId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid>("ChatId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("DateLastViewing")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("ParticipantId", "ChatId");
-
-                    b.HasIndex("ChatId");
-
-                    b.ToTable("UserChatHistories");
-                });
-
             modelBuilder.Entity("old_planner_api.src.Domain.Models.UserModel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -240,8 +311,7 @@ namespace old_planner_api.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.HasIndex("Token")
-                        .IsUnique();
+                    b.HasIndex("Token");
 
                     b.ToTable("Users");
                 });
@@ -265,16 +335,35 @@ namespace old_planner_api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.ChatMembership", b =>
+                {
+                    b.HasOne("old_planner_api.src.Domain.Models.Chat", "Chat")
+                        .WithMany("ChatMemberships")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("old_planner_api.src.Domain.Models.UserModel", "User")
+                        .WithMany("Memberships")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("old_planner_api.src.Domain.Models.ChatMessage", b =>
                 {
-                    b.HasOne("old_planner_api.src.Domain.Models.TaskChat", "Chat")
+                    b.HasOne("old_planner_api.src.Domain.Models.Chat", "Chat")
                         .WithMany("Messages")
                         .HasForeignKey("ChatId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Sender")
-                        .WithMany("ChatMessages")
+                        .WithMany("SentMessages")
                         .HasForeignKey("SenderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -298,12 +387,50 @@ namespace old_planner_api.Migrations
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChat", b =>
                 {
                     b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "Task")
-                        .WithMany()
-                        .HasForeignKey("TaskId")
+                        .WithOne("Chat")
+                        .HasForeignKey("old_planner_api.src.Domain.Models.TaskChat", "TaskId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChatMembership", b =>
+                {
+                    b.HasOne("old_planner_api.src.Domain.Models.TaskChat", "Chat")
+                        .WithMany()
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Participant")
+                        .WithMany()
+                        .HasForeignKey("ParticipantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+
+                    b.Navigation("Participant");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChatMessage", b =>
+                {
+                    b.HasOne("old_planner_api.src.Domain.Models.TaskChat", "Chat")
+                        .WithMany("Messages")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Sender")
+                        .WithMany("ChatMessages")
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
@@ -331,30 +458,18 @@ namespace old_planner_api.Migrations
                     b.Navigation("DraftOfTask");
                 });
 
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.UserChatHistory", b =>
-                {
-                    b.HasOne("old_planner_api.src.Domain.Models.TaskChat", "Chat")
-                        .WithMany()
-                        .HasForeignKey("ChatId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Participant")
-                        .WithMany()
-                        .HasForeignKey("ParticipantId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Chat");
-
-                    b.Navigation("Participant");
-                });
-
             modelBuilder.Entity("old_planner_api.src.Domain.Models.Board", b =>
                 {
                     b.Navigation("Members");
 
                     b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("old_planner_api.src.Domain.Models.Chat", b =>
+                {
+                    b.Navigation("ChatMemberships");
+
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChat", b =>
@@ -364,12 +479,19 @@ namespace old_planner_api.Migrations
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
                 {
+                    b.Navigation("Chat")
+                        .IsRequired();
+
                     b.Navigation("DeletedTask");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.UserModel", b =>
                 {
                     b.Navigation("ChatMessages");
+
+                    b.Navigation("Memberships");
+
+                    b.Navigation("SentMessages");
                 });
 #pragma warning restore 612, 618
         }

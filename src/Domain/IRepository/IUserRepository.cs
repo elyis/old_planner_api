@@ -7,6 +7,7 @@ namespace old_planner_api.src.Domain.IRepository
     {
         Task<UserModel?> AddAsync(SignUpBody body, string role);
         Task<UserModel?> GetAsync(Guid id);
+        Task<List<UserModel>> GetUsersAsync(List<string> userEmails);
         Task<UserModel?> GetAsync(string email);
         Task<string?> UpdateTokenAsync(string refreshToken, Guid userId, TimeSpan? duration = null);
         Task<UserModel?> GetByTokenAsync(string refreshTokenHash);

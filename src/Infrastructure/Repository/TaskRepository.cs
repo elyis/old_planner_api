@@ -37,7 +37,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                 EndDate = ParseDateTime(taskBody.EndDate),
             };
 
-            return await AddTaskAsync(task);
+            return await AddTaskAsync(task, creator);
         }
 
         public async Task<TaskModel?> AddAsync
@@ -63,7 +63,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                 DraftOfTask = parentTask,
             };
 
-            return await AddTaskAsync(task);
+            return await AddTaskAsync(task, creator);
         }
 
         public async Task<IEnumerable<TaskModel>> GetAll(Guid boardId, bool isDraft = false)
@@ -157,7 +157,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                     Board = draft.Board,
                     IsDraft = false
                 };
-                task = await AddTaskAsync(task);
+                task = await AddTaskAsync(task, user);
             }
 
             _context.Tasks.Remove(draft);
@@ -192,14 +192,21 @@ namespace old_planner_api.src.Infrastructure.Repository
             return draft;
         }
 
-        private DateTime? ParseDateTime(string? dateTimeString)
-            => dateTimeString == null ? null : DateTime.Parse(dateTimeString);
+        private DateTime? ParseDateTime(string? dateTimeString) =>
+            DateTime.TryParse(dateTimeString, out var date) ? date : null;
 
-        private async Task<TaskModel?> AddTaskAsync(TaskModel task)
+
+        private async Task<TaskModel?> AddTaskAsync(TaskModel task, UserModel user)
         {
             task.Chat = new TaskChat
             {
                 Task = task,
+                Memberships = new List<TaskChatMembership>
+                {
+                    new() {
+                        Participant = user
+                    }
+                }
             };
             task = (await _context.Tasks.AddAsync(task))?.Entity;
             await _context.SaveChangesAsync();

@@ -34,6 +34,13 @@ namespace old_planner_api.src.Infrastructure.Repository
             return result?.Entity;
         }
 
+
+        public async Task<List<UserModel>> GetUsersAsync(List<string> userEmails)
+        {
+            var result = await _context.Users.Where(e => userEmails.Contains(e.Email)).ToListAsync();
+            return result;
+        }
+
         public async Task<UserModel?> GetAsync(Guid id)
             => await _context.Users
                 .FirstOrDefaultAsync(e => e.Id == id);

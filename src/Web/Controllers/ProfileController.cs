@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using webApiTemplate.src.App.IService;
+using System.ComponentModel.DataAnnotations;
 
 namespace old_planner_api.src.Web.Controllers
 {

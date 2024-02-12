@@ -10,7 +10,5 @@ namespace old_planner_api.src.Domain.Entities.Request
 
         [Required]
         public string Content { get; set; }
-
-        public Guid SenderId { get; set; }
     }
 }

@@ -8,10 +8,10 @@ using MimeDetective;
 using webApiTemplate.src.App.IService;
 using webApiTemplate.src.App.Service;
 using webApiTemplate.src.Domain.Entities.Config;
-using old_planner_api.src.WebSockets.App.IService;
-using old_planner_api.src.WebSockets.App.Service;
 using old_planner_api.src.App.IService;
 using old_planner_api.src.App.Service;
+using old_planner_api.src.Ws.App.IService;
+using old_planner_api.src.Ws.App.Service;
 
 namespace old_planner_api
 {
@@ -96,6 +96,7 @@ namespace old_planner_api
             services.AddSingleton<IJwtService, JwtService>();
             services.AddSingleton<IFileUploaderService, LocalFileUploaderService>();
             services.AddSingleton<ITaskChatService, TaskChatService>();
+            services.AddSingleton<IChatService, ChatService>();
             services.AddSingleton(fileInspector);
             services.AddSingleton(jwtSettings);
 

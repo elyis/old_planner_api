@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using old_planner_api.src.Domain.Entities.Request;
+using old_planner_api.src.Domain.Entities.Response;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
 using old_planner_api.src.Infrastructure.Data;
@@ -15,71 +16,66 @@ namespace old_planner_api.src.Infrastructure.Repository
             _context = context;
         }
 
-        public async Task<TaskChat?> AddAsync(TaskModel task)
+        public async Task<List<TaskChatBody>> GetUserChatBodies(Guid userId)
         {
-            var chat = await GetByTaskAsync(task.Id);
-            if (chat != null)
-                return null;
+            var result = new List<TaskChatBody>();
 
-            chat = new TaskChat
-            {
-                Task = task,
-            };
-
-            chat = (await _context.TaskChats.AddAsync(chat))?.Entity;
-            await _context.SaveChangesAsync();
-
-            return chat;
-        }
-
-        public async Task<TaskChat?> GetTaskChatWithParticipants(Guid taskId)
-        {
-            var chat = await _context.TaskChats
-                .Include(e => e.Memberships)
-                    .ThenInclude(e => e.Participant)
-                .FirstOrDefaultAsync(e => e.TaskId == taskId);
-
-            return chat;
-        }
-
-        public async Task<List<TaskChatMembership>> GetTaskChatMemberships(Guid userId)
-        {
-            var chatIds = await _context.TaskChatMemberships
+            var chats = await _context.TaskChatMemberships
+                .Include(e => e.Chat)
                 .Where(e => e.ParticipantId == userId)
-                .Select(e => e.ChatId)
                 .ToListAsync();
+
+            if (!chats.Any())
+                return result;
+
+            var chatIds = chats.Select(e => e.ChatId);
 
             var chatMemberships = await _context.TaskChatMemberships
                 .Include(e => e.Participant)
                 .Where(e => chatIds.Contains(e.ChatId))
+                .GroupBy(e => e.ChatId)
                 .ToListAsync();
 
-            return chatMemberships;
+            foreach (var chatMembership in chatMemberships)
+            {
+                var chat = chats.First(e => e.ChatId == chatMembership.Key).Chat;
+
+                var taskChatBody = new TaskChatBody
+                {
+                    Id = chat.Id,
+                    Name = chat.Name,
+                    ImageUrl = chat.Image == null ? null : $"{Constants.webPathToChatIcons}{chat.Image}",
+                    Participants = chatMembership.Select(e => e.Participant.ToChatUserInfo()).ToList()
+                };
+                result.Add(taskChatBody);
+            }
+
+            return result;
         }
 
-        public async Task<TaskChatMembership?> GetUserChatHistoryAsync(Guid chatId, Guid userId)
+        public async Task<TaskChatMembership?> GetTaskChatMembershipAsync(Guid chatId, Guid userId)
             => await _context.TaskChatMemberships
                 .FirstOrDefaultAsync(e =>
                     e.ChatId == chatId && e.ParticipantId == userId);
 
-        public async Task<TaskChatMembership?> CreateOrGetUserChatHistoryAsync(TaskChat chat, UserModel user)
+        public async Task<TaskChatMembership?> AddOrGetUserChatHistoryAsync(TaskChat chat, UserModel user)
         {
-            var userChatHistory = await GetUserChatHistoryAsync(chat.Id, user.Id);
-            if (userChatHistory != null)
-                return userChatHistory;
+            var chatMembership = await GetTaskChatMembershipAsync(chat.Id, user.Id);
+            if (chatMembership != null)
+                return chatMembership;
 
-            userChatHistory = new TaskChatMembership
+            chatMembership = new TaskChatMembership
             {
                 Chat = chat,
                 Participant = user
             };
 
-            userChatHistory = (await _context.TaskChatMemberships.AddAsync(userChatHistory))?.Entity;
+            chatMembership = (await _context.TaskChatMemberships.AddAsync(chatMembership))?.Entity;
             await _context.SaveChangesAsync();
-            return userChatHistory;
+            return chatMembership;
         }
 
-        public async Task<TaskChatMessage?> AddAsync(CreateMessageBody messageBody, TaskChat chat, UserModel sender)
+        public async Task<TaskChatMessage?> AddMessageAsync(CreateMessageBody messageBody, TaskChat chat, UserModel sender)
         {
             var message = new TaskChatMessage
             {
@@ -98,37 +94,34 @@ namespace old_planner_api.src.Infrastructure.Repository
         public async Task<TaskChatMessage?> GetMessageAsync(Guid id)
             => await _context.TaskChatMessages.FindAsync(id);
 
-        public async Task<TaskChat?> GetAsync(Guid id)
+        public async Task<TaskChat?> GetChatAsync(Guid id)
             => await _context.TaskChats.FindAsync(id);
 
-        public async Task<TaskChat?> GetByTaskAsync(Guid taskId)
-            => await _context.TaskChats
-                .FirstOrDefaultAsync(e => e.TaskId == taskId);
-
-        public async Task<IEnumerable<TaskChatMessage>> GetLastMessages(TaskChatMembership chatHistory, DateTime startedTime, int count)
+        public async Task<IEnumerable<TaskChatMessage>> GetLastMessages(TaskChatMembership chatMembership, DateTime startedTime, int count)
         {
             var messages = await _context.TaskChatMessages
                 .OrderBy(e => e.CreatedAtDate)
-                .Where(e => e.CreatedAtDate > startedTime && e.ChatId == chatHistory.ChatId)
+                .Where(e => e.CreatedAtDate > startedTime && e.ChatId == chatMembership.ChatId)
                 .Take(count)
                 .ToListAsync();
-
-            var lastMessage = messages.LastOrDefault();
-            if (lastMessage != null)
-            {
-                chatHistory.DateLastViewing = lastMessage.CreatedAtDate;
-                await _context.SaveChangesAsync();
-            }
 
             return messages;
         }
 
-        public async Task<TaskChatMembership?> GetTaskChatMembershipAsync(Guid chatId, Guid userId)
-            => await _context.TaskChatMemberships
-                .FirstOrDefaultAsync(e =>
-                    e.ChatId == chatId && e.ParticipantId == userId);
+        public async Task<bool> UpdateLastViewingChatMembership(TaskChatMembership chatMembership, DateTime lastViewingDate)
+        {
+            if (chatMembership == null)
+                return false;
 
-        public async Task<TaskChatMembership?> AddAsync(TaskChat chat, UserModel user)
+            if (chatMembership.DateLastViewing > lastViewingDate)
+                return false;
+
+            chatMembership.DateLastViewing = lastViewingDate;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+        public async Task<TaskChatMembership?> AddChatMembershipAsync(TaskChat chat, UserModel user)
         {
             var membership = await GetTaskChatMembershipAsync(chat.Id, user.Id);
             if (membership != null)

@@ -198,9 +198,13 @@ namespace old_planner_api.src.Infrastructure.Repository
 
         private async Task<TaskModel?> AddTaskAsync(TaskModel task, UserModel user)
         {
+            if (task == null)
+                return null;
+
             task.Chat = new TaskChat
             {
                 Task = task,
+                Name = task.Title,
                 Memberships = new List<TaskChatMembership>
                 {
                     new() {

@@ -147,6 +147,13 @@ namespace old_planner_api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Image")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("TaskId")
                         .HasColumnType("TEXT");
 
@@ -344,7 +351,7 @@ namespace old_planner_api.Migrations
                         .IsRequired();
 
                     b.HasOne("old_planner_api.src.Domain.Models.UserModel", "User")
-                        .WithMany("Memberships")
+                        .WithMany("ChatMemberships")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -398,13 +405,13 @@ namespace old_planner_api.Migrations
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChatMembership", b =>
                 {
                     b.HasOne("old_planner_api.src.Domain.Models.TaskChat", "Chat")
-                        .WithMany()
+                        .WithMany("Memberships")
                         .HasForeignKey("ChatId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Participant")
-                        .WithMany()
+                        .WithMany("TaskChatMemberships")
                         .HasForeignKey("ParticipantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -474,6 +481,8 @@ namespace old_planner_api.Migrations
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskChat", b =>
                 {
+                    b.Navigation("Memberships");
+
                     b.Navigation("Messages");
                 });
 
@@ -487,11 +496,13 @@ namespace old_planner_api.Migrations
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.UserModel", b =>
                 {
+                    b.Navigation("ChatMemberships");
+
                     b.Navigation("ChatMessages");
 
-                    b.Navigation("Memberships");
-
                     b.Navigation("SentMessages");
+
+                    b.Navigation("TaskChatMemberships");
                 });
 #pragma warning restore 612, 618
         }

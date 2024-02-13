@@ -26,19 +26,25 @@ namespace old_planner_api.src.Ws.App.Handler
 
         public async Task Invoke(
             UserModel user,
-            TaskChatMembership userChatHistory,
+            TaskChatMembership chatMembership,
             TaskChat chat,
             List<TaskChatSession> connections,
             TaskChatSession currentConnection
         )
         {
-            await SendLastMessages(userChatHistory, userChatHistory.DateLastViewing, int.MaxValue, currentConnection.Ws);
-            await Loop(connections, currentConnection, user, chat);
+            await SendLastMessages(chatMembership, chatMembership.DateLastViewing, int.MaxValue, currentConnection.Ws);
+            await Loop(connections, currentConnection, user, chat, chatMembership);
         }
 
-        private async Task SendLastMessages(TaskChatMembership chatHistory, DateTime startedDate, int count, WebSocket ws)
+        private async Task SendLastMessages(TaskChatMembership chatMembership, DateTime startedDate, int count, WebSocket ws)
         {
-            var lastMessages = await _chatRepository.GetLastMessages(chatHistory, startedDate, count);
+            var lastMessages = await _chatRepository.GetLastMessages(chatMembership, startedDate, count);
+            if (lastMessages.Any())
+            {
+                var lastMessage = lastMessages.Last();
+                await _chatRepository.UpdateLastViewingChatMembership(chatMembership, lastMessage.CreatedAtDate);
+            }
+
             var messages = lastMessages.Select(e => SerializeObject(e.ToMessageBody()));
             foreach (var message in messages)
                 await ws.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, CancellationToken.None);
@@ -48,7 +54,8 @@ namespace old_planner_api.src.Ws.App.Handler
             List<TaskChatSession> allConnections,
             TaskChatSession currentConnection,
             UserModel user,
-            TaskChat chat
+            TaskChat chat,
+            TaskChatMembership chatMembership
         )
         {
             var ws = currentConnection.Ws;
@@ -84,7 +91,7 @@ namespace old_planner_api.src.Ws.App.Handler
                         }
                         else
                         {
-                            var chatMessage = await _chatRepository.AddAsync(messageBody, chat, user);
+                            var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
                             var serializeString = SerializeObject(chatMessage.ToMessageBody());
                             var temp = Encoding.UTF8.GetBytes(serializeString);
                             await SendMessageToAll(otherConnections, temp, WebSocketMessageType.Text);
@@ -106,6 +113,8 @@ namespace old_planner_api.src.Ws.App.Handler
             {
                 if (ws.State == WebSocketState.Open)
                     await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, errorMessage, CancellationToken.None);
+
+                await _chatRepository.UpdateLastViewingChatMembership(chatMembership, DateTime.UtcNow);
             }
         }
 

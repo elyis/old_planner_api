@@ -60,24 +60,6 @@ namespace old_planner_api.src.Infrastructure.Repository
             return message;
         }
 
-        public async Task<List<ChatMessage>> GetLastMessages(ChatMembership chatMembership, DateTime startedTime, int count, bool isUpdateViewing = false)
-        {
-            var messages = await _context.ChatMessages
-                .OrderBy(e => e.SentAt)
-                .Where(e => e.SentAt > startedTime && e.ChatId == chatMembership.ChatId)
-                .Take(count)
-                .ToListAsync();
-
-            var lastMessage = messages.LastOrDefault();
-            if (lastMessage != null)
-            {
-                chatMembership.DateLastViewing = lastMessage.SentAt;
-                await _context.SaveChangesAsync();
-            }
-
-            return messages;
-        }
-
         public async Task<ChatMembership?> AddMembershipAsync(UserModel user, Chat chat)
         {
             var chatMembership = await GetMembershipAsync(chat.Id, user.Id);

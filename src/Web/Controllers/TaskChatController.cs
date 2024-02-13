@@ -63,7 +63,7 @@ namespace old_planner_api.src.Web.Controllers
             if (!websocketManager.IsWebSocketRequest)
                 return;
 
-            var chat = await _chatRepository.GetAsync(chatId);
+            var chat = await _chatRepository.GetChatAsync(chatId);
             if (chat == null)
                 return;
 
@@ -78,7 +78,7 @@ namespace old_planner_api.src.Web.Controllers
                 Ws = ws
             };
 
-            var userChatHistory = await _chatRepository.CreateOrGetUserChatHistoryAsync(chat, user);
+            var userChatHistory = await _chatRepository.AddOrGetUserChatHistoryAsync(chat, user);
             if (userChatHistory == null)
                 return;
 
@@ -97,16 +97,7 @@ namespace old_planner_api.src.Web.Controllers
         )
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var chatMemberships = await _chatRepository.GetTaskChatMemberships(tokenInfo.UserId);
-
-            var result = chatMemberships
-                .GroupBy(e => e.ChatId)
-                .Select(group => new TaskChatBody
-                {
-                    Id = group.Key,
-                    Participants = group.Select(e => e.Participant.ToChatUserInfo()).ToList()
-                });
-
+            var result = await _chatRepository.GetUserChatBodies(tokenInfo.UserId);
             return Ok(result);
         }
 
@@ -130,7 +121,7 @@ namespace old_planner_api.src.Web.Controllers
             }
 
 
-            var chat = await _chatRepository.GetAsync(chatId);
+            var chat = await _chatRepository.GetChatAsync(chatId);
             if (chat == null)
                 return BadRequest("chatId is empty");
 
@@ -140,7 +131,7 @@ namespace old_planner_api.src.Web.Controllers
             var notAddedUsers = new List<string>();
             foreach (var user in users)
             {
-                var result = await _chatRepository.AddAsync(chat, user);
+                var result = await _chatRepository.AddChatMembershipAsync(chat, user);
                 if (result == null)
                     notAddedUsers.Add(user.Email);
             }
@@ -167,7 +158,7 @@ namespace old_planner_api.src.Web.Controllers
             var filename = (string)result.Value;
             var tokenInfo = _jwtService.GetTokenInfo(token);
 
-            var chat = await _chatRepository.GetAsync(chatId);
+            var chat = await _chatRepository.GetChatAsync(chatId);
             if (chat == null)
                 return BadRequest();
 
@@ -178,7 +169,7 @@ namespace old_planner_api.src.Web.Controllers
                 Content = filename,
             };
 
-            var chatMessage = await _chatRepository.AddAsync(messageBody, chat, user);
+            var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
             if (chatMessage == null)
                 return BadRequest();
 

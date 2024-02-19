@@ -11,8 +11,12 @@ namespace old_planner_api
         public static readonly string localPathToChatIcons = $"{localPathToStorages}chat/icons";
 
         public static readonly string webPathToProfileIcons = $"{serverUrl}/api/upload/profileIcon/";
-        public static readonly string webPathToTaskChatAttachments = $"{serverUrl}/api/upload/chat/tasks/";
-        public static readonly string webPathToChatPrivateAttachment = $"{serverUrl}/api/upload/chat/private/";
-        public static readonly string webPathToChatIcons = $"{serverUrl}/api/upload/chat/icons/";
+
+        public static readonly string webPathToTaskChatAttachments = $"{serverUrl}/api/upload/taskChat/";
+        public static readonly string webPathToChatPrivateAttachment = $"{serverUrl}/api/upload/chat/";
+
+
+        public static readonly string webPathToPrivateChatIcons = $"{serverUrl}/api/upload/chatIcon/";
+        public static readonly string webPathToTaskChatIcons = $"{serverUrl}/api/upload/taskChatIcon/";
     }
 }

@@ -8,6 +8,7 @@ namespace old_planner_api.src.Domain.Models
 
         [StringLength(64, MinimumLength = 1)]
         public string Name { get; set; }
+        public string? Image { get; set; }
         public string Type { get; set; }
 
         public List<ChatMessage> Messages { get; set; } = new();

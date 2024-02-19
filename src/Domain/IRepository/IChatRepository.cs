@@ -1,5 +1,5 @@
 using old_planner_api.src.Domain.Entities.Request;
-using old_planner_api.src.Domain.Enums;
+using old_planner_api.src.Domain.Entities.Response;
 using old_planner_api.src.Domain.Models;
 
 namespace old_planner_api.src.Domain.IRepository
@@ -8,15 +8,19 @@ namespace old_planner_api.src.Domain.IRepository
     {
         Task<Chat?> GetAsync(Guid id);
         Task<ChatMembership?> AddMembershipAsync(UserModel user, Chat chat);
+        Task<List<ChatMembership>> GetChatMembershipsAsync(Guid chatId);
         Task<ChatMembership?> GetMembershipAsync(Guid chatId, Guid userId);
-        Task<ChatMessage?> AddAsync(CreateMessageBody messageBody, Chat chat, UserModel sender);
+        Task<ChatMessage?> AddMessageAsync(CreateMessageBody messageBody, Chat chat, UserModel sender);
+        Task<IEnumerable<ChatMessage>> GetLastMessagesAndUpdateLastViewing(ChatMembership chatMembership, DateTime startedTime, int count);
         Task<ChatMessage?> GetMessageAsync(Guid id);
+        Task<Chat?> UpdateChatImage(Guid chatId, string filename);
         Task<IEnumerable<ChatMessage>> GetLastMessages(ChatMembership chatMembership, DateTime startedTime, int count);
+        Task<bool> UpdateLastViewingChatMembership(ChatMembership chatMembership, DateTime lastViewingDate);
         Task<ChatMembership?> CreateOrGetChatMembershipAsync(Chat chat, UserModel user);
-        Task<ChatMembership?> AddAsync(Chat chat, UserModel user);
-        Task<List<ChatMembership>> GetUserChatMemberships(Guid userId);
-        Task<ChatMembership?> GetChatMembershipAsync(Guid firstUserId, Guid secondUserId, ChatType? chatType);
+        Task<ChatMembership?> AddUserToChatAsync(Chat chat, UserModel user);
+        Task<List<ChatBody>> GetUserChats(Guid userId);
+        Task<ChatMembership?> GetPersonalChatAsync(Guid firstUserId, Guid secondUserId);
         Task<int> GetCountChatMemberships(Guid chatId);
-        Task<Chat?> AddChatAsync(List<UserModel> participants, CreateChatBody chatBody);
+        Task<Chat?> AddPersonalChatAsync(List<UserModel> participants, CreateChatBody chatBody);
     }
 }

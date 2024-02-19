@@ -75,16 +75,42 @@ namespace old_planner_api.src.Web.Controllers
             var userConnection = new TaskChatSession
             {
                 User = user.ToChatUserInfo(),
-                Ws = ws
+                Ws = ws,
             };
 
-            var userChatHistory = await _chatRepository.AddOrGetUserChatHistoryAsync(chat, user);
-            if (userChatHistory == null)
+            var currentChatMembership = await _chatRepository.AddOrGetChatMembershipAsync(chat, user);
+            if (currentChatMembership == null)
                 return;
 
-            var connections = _taskChatService.AddConnection(chatId, userConnection);
-            await _taskChatHandler.Invoke(user, userChatHistory, chat, connections, userConnection);
+            var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
+            var userIds = chatMemberships.Select(e => e.ParticipantId).ToList();
+
+            var connections = _taskChatService.AddConnection(chatId, userConnection, userIds);
+            await _taskChatHandler.Invoke(user, currentChatMembership, chat, connections, userConnection);
             _taskChatService.RemoveConnection(chatId, userConnection);
+        }
+
+        [HttpGet("api/taskChat/messages")]
+        [SwaggerOperation("Получить список последних сообщений в чате")]
+        [SwaggerResponse(200, Type = typeof(IEnumerable<MessageBody>))]
+
+        public async Task<IActionResult> GetMessages(
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token,
+            [FromQuery, Required] Guid chatId,
+            [FromQuery, Range(0, int.MaxValue)] int count
+        )
+        {
+            if (count == 0)
+                return Ok(new List<MessageBody>());
+
+            var tokenInfo = _jwtService.GetTokenInfo(token);
+            var chatMembership = await _chatRepository.GetTaskChatMembershipAsync(chatId, tokenInfo.UserId);
+            if (chatMembership == null)
+                return BadRequest();
+
+            var messages = await _chatRepository.GetLastMessagesAndUpdateLastViewing(chatMembership, chatMembership.DateLastViewing, count);
+            var result = messages.Select(e => e.ToMessageBody());
+            return Ok(result);
         }
 
 
@@ -139,7 +165,7 @@ namespace old_planner_api.src.Web.Controllers
             return Ok(notAddedUsers);
         }
 
-        [HttpPost("api/upload/taskChat/tasks"), Authorize]
+        [HttpPost("api/upload/taskChat"), Authorize]
         [SwaggerOperation("Загрузить файл в чат задачи")]
         [SwaggerResponse(200, Description = "Успешно", Type = typeof(Guid))]
 
@@ -173,13 +199,51 @@ namespace old_planner_api.src.Web.Controllers
             if (chatMessage == null)
                 return BadRequest();
 
-            var serializableString = JsonConvert.SerializeObject(chatMessage.ToCreateMessageBody());
-            var bytes = Encoding.UTF8.GetBytes(serializableString);
-
-            var connections = _taskChatService.GetConnections(chatId);
-            await _taskChatHandler.SendMessageToAll(connections, bytes, WebSocketMessageType.Text);
+            var chatLobby = _taskChatService.GetConnections(chatId);
+            if (chatLobby != null)
+                await _taskChatHandler.SendMessageToAll(chatLobby.ActiveConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, chatLobby.ChatUsers, chat);
             return Ok();
         }
+
+
+        [HttpGet("api/upload/taskChat/{filename}")]
+        [SwaggerOperation("Получить файл чата")]
+        [SwaggerResponse(200, Description = "Успешно", Type = typeof(File))]
+        [SwaggerResponse(404, Description = "Неверное имя файла")]
+
+        public async Task<IActionResult> GetTaskChatAttachments([Required] string filename)
+            => await GetIconAsync(Constants.localPathToTaskChatAttachments, filename);
+
+        [HttpGet("api/upload/taskChatIcon/{filename}")]
+        [SwaggerOperation("Получить иконку чата")]
+        [SwaggerResponse(200, Description = "Успешно", Type = typeof(File))]
+        [SwaggerResponse(404, Description = "Неверное имя файла")]
+
+        public async Task<IActionResult> GetChatIcon([Required] string filename)
+            => await GetIconAsync(Constants.localPathToChatIcons, filename);
+
+        [HttpPost("api/upload/taskChatIcon"), Authorize]
+        [SwaggerOperation("Загрузить иконку чата")]
+        [SwaggerResponse(200, Description = "Успешно", Type = typeof(Guid))]
+
+        public async Task<IActionResult> UploadChatIcon(
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token,
+            [Required, FromQuery] Guid chatId,
+            [FromForm, Required] IFormFile file
+        )
+        {
+            var resultUpload = await UploadFileAsync(Constants.localPathToChatIcons, file);
+            if (resultUpload is not OkObjectResult)
+                return resultUpload;
+
+
+            var result = (OkObjectResult)resultUpload;
+            var filename = (string)result.Value;
+
+            var chat = await _chatRepository.UpdateChatImage(chatId, filename);
+            return chat == null ? BadRequest() : Ok();
+        }
+
 
         private async Task<IActionResult> UploadFileAsync(string path, IFormFile file)
         {
@@ -200,6 +264,16 @@ namespace old_planner_api.src.Web.Controllers
                 return BadRequest("Failed to upload the file");
 
             return Ok(filename);
+        }
+
+        private async Task<IActionResult> GetIconAsync(string path, string filename)
+        {
+            var bytes = await _fileUploaderService.GetStreamFileAsync(path, filename);
+            if (bytes == null)
+                return NotFound();
+
+            var fileExtension = Path.GetExtension(filename);
+            return File(bytes, $"image/{fileExtension}", filename);
         }
 
 

@@ -7,6 +7,6 @@ namespace old_planner_api.src.Domain.Enums
     public enum ChatType
     {
         Personal,
-        Group,
+        Task,
     }
 }

@@ -4,8 +4,8 @@ namespace old_planner_api.src.Ws.App.IService
 {
     public interface ITaskChatService
     {
-        List<TaskChatSession> AddConnection(Guid chatId, TaskChatSession userConnection);
+        TaskChatLobby AddConnection(Guid chatId, TaskChatSession userConnection, List<Guid> userIds);
         void RemoveConnection(Guid chatId, TaskChatSession userConnection);
-        List<TaskChatSession> GetConnections(Guid chatId);
+        TaskChatLobby? GetConnections(Guid chatId);
     }
 }

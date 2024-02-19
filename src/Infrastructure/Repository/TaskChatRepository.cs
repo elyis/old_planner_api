@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using old_planner_api.src.Domain.Entities.Request;
 using old_planner_api.src.Domain.Entities.Response;
+using old_planner_api.src.Domain.Enums;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
 using old_planner_api.src.Infrastructure.Data;
+using old_planner_api.src.Ws.App.IService;
 
 namespace old_planner_api.src.Infrastructure.Repository
 {
@@ -36,18 +38,25 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .GroupBy(e => e.ChatId)
                 .ToListAsync();
 
+
+
             foreach (var chatMembership in chatMemberships)
             {
-                var chat = chats.First(e => e.ChatId == chatMembership.Key).Chat;
+                var userMembership = chats.First(e => e.ChatId == chatMembership.Key);
+                var chat = userMembership.Chat;
 
-                var taskChatBody = new TaskChatBody
+                var lastMessage = await _context.TaskChatMessages
+                    .FirstOrDefaultAsync(e => e.SentAt > userMembership.DateLastViewing);
+
+                var chatBody = new TaskChatBody
                 {
                     Id = chat.Id,
                     Name = chat.Name,
-                    ImageUrl = chat.Image == null ? null : $"{Constants.webPathToChatIcons}{chat.Image}",
-                    Participants = chatMembership.Select(e => e.Participant.ToChatUserInfo()).ToList()
+                    ImageUrl = chat.Image == null ? null : $"{Constants.webPathToTaskChatIcons}{chat.Image}",
+                    Participants = chatMembership.Select(e => e.Participant.ToChatUserInfo()).ToList(),
+                    LastMesssage = lastMessage?.ToMessageBody()
                 };
-                result.Add(taskChatBody);
+                result.Add(chatBody);
             }
 
             return result;
@@ -58,7 +67,27 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .FirstOrDefaultAsync(e =>
                     e.ChatId == chatId && e.ParticipantId == userId);
 
-        public async Task<TaskChatMembership?> AddOrGetUserChatHistoryAsync(TaskChat chat, UserModel user)
+        public async Task<List<TaskChatMembership>> GetChatMembershipsAsync(Guid chatId)
+            => await _context.TaskChatMemberships
+                .Where(e => e.ChatId == chatId)
+                .ToListAsync();
+
+        public async Task<TaskChat?> UpdateChatImage(Guid chatId, string filename)
+        {
+            if (string.IsNullOrEmpty(filename))
+                return null;
+
+            var chat = await GetChatAsync(chatId);
+            if (chat == null)
+                return null;
+
+            chat.Image = filename;
+            await _context.SaveChangesAsync();
+
+            return chat;
+        }
+
+        public async Task<TaskChatMembership?> AddOrGetChatMembershipAsync(TaskChat chat, UserModel user)
         {
             var chatMembership = await GetTaskChatMembershipAsync(chat.Id, user.Id);
             if (chatMembership != null)
@@ -100,10 +129,22 @@ namespace old_planner_api.src.Infrastructure.Repository
         public async Task<IEnumerable<TaskChatMessage>> GetLastMessages(TaskChatMembership chatMembership, DateTime startedTime, int count)
         {
             var messages = await _context.TaskChatMessages
-                .OrderBy(e => e.CreatedAtDate)
-                .Where(e => e.CreatedAtDate > startedTime && e.ChatId == chatMembership.ChatId)
+                .OrderBy(e => e.SentAt)
+                .Where(e => e.SentAt >= startedTime && e.ChatId == chatMembership.ChatId)
                 .Take(count)
                 .ToListAsync();
+
+            return messages;
+        }
+
+        public async Task<IEnumerable<TaskChatMessage>> GetLastMessagesAndUpdateLastViewing(TaskChatMembership chatMembership, DateTime startedTime, int count)
+        {
+            var messages = await GetLastMessages(chatMembership, startedTime, count);
+            if (messages.Any())
+            {
+                var lastMessage = messages.Last();
+                await UpdateLastViewingChatMembership(chatMembership, lastMessage.SentAt);
+            }
 
             return messages;
         }

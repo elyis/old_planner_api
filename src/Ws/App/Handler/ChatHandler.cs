@@ -2,10 +2,12 @@ using System.Net.WebSockets;
 using System.Text;
 using Newtonsoft.Json;
 using old_planner_api.src.Domain.Entities.Request;
+using old_planner_api.src.Domain.Entities.Response;
 using old_planner_api.src.Domain.Enums;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
 using old_planner_api.src.Ws.App.IHandler;
+using old_planner_api.src.Ws.App.IService;
 using old_planner_api.src.Ws.Entities;
 
 namespace old_planner_api.src.Ws.App.Handler
@@ -14,13 +16,16 @@ namespace old_planner_api.src.Ws.App.Handler
     {
         private readonly IChatRepository _chatRepository;
         private readonly ILogger<TaskChatHandler> _logger;
+        private readonly IMainMonitoringService _monitoringService;
 
         public ChatHandler(
             IChatRepository chatRepository,
-            ILogger<TaskChatHandler> logger
+            ILogger<TaskChatHandler> logger,
+            IMainMonitoringService monitoringService
         )
         {
             _chatRepository = chatRepository;
+            _monitoringService = monitoringService;
             _logger = logger;
         }
 
@@ -28,27 +33,19 @@ namespace old_planner_api.src.Ws.App.Handler
             UserModel user,
             ChatMembership chatMembership,
             Chat chat,
-            List<ChatSession> connections,
-            ChatSession currentConnection
+            ChatLobby lobby,
+            ChatSession currentSession
         )
         {
-            await SendLastMessages(chatMembership, chatMembership.DateLastViewing, int.MaxValue, currentConnection.Ws);
-            await Loop(connections, currentConnection, user, chat);
-        }
-
-        private async Task SendLastMessages(ChatMembership chatMembership, DateTime startedDate, int count, WebSocket ws)
-        {
-            var lastMessages = await _chatRepository.GetLastMessages(chatMembership, startedDate, count);
-            var messages = lastMessages.Select(e => SerializeObject(e.ToMessageBody()));
-            foreach (var message in messages)
-                await ws.SendAsync(Encoding.UTF8.GetBytes(message), WebSocketMessageType.Text, true, CancellationToken.None);
+            await Loop(lobby, currentSession, user, chat, chatMembership);
         }
 
         private async Task Loop(
-            List<ChatSession> allSessions,
+            ChatLobby lobby,
             ChatSession currentSession,
             UserModel user,
-            Chat chat
+            Chat chat,
+            ChatMembership chatMembership
         )
         {
             var ws = currentSession.Ws;
@@ -56,6 +53,9 @@ namespace old_planner_api.src.Ws.App.Handler
 
             try
             {
+                var connections = lobby.ActiveConnections;
+                var chatUserIds = lobby.ChatUsers;
+
                 while (ws.State == WebSocketState.Open)
                 {
                     var stream = await ReceiveMessage(ws, CancellationToken.None);
@@ -65,29 +65,24 @@ namespace old_planner_api.src.Ws.App.Handler
 
                     stream.Seek(0, SeekOrigin.Begin);
                     var bytes = stream.GetBuffer();
-                    var otherConnections = allSessions.Where(e => e.User.Id != currentSession.User.Id);
+                    var otherConnections = connections.Where(e => e.User.Id != currentSession.User.Id);
                     var input = Encoding.UTF8.GetString(bytes);
 
                     if (input != null)
                     {
                         var messageBody = JsonConvert.DeserializeObject<CreateMessageBody>(input);
 
+                        var userIds = chatUserIds.Where(userId => userId != user.Id);
                         if (messageBody.Type == MessageType.File && Guid.TryParse(messageBody.Content, out var messageId))
                         {
                             var message = await _chatRepository.GetMessageAsync(messageId);
                             if (message != null)
-                            {
-                                var serializeString = SerializeObject(message.ToMessageBody());
-                                var tempBytes = Encoding.UTF8.GetBytes(serializeString);
-                                await SendMessageToAll(allSessions, tempBytes, WebSocketMessageType.Text);
-                            }
+                                await SendMessageToAll(connections, message.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
                         }
                         else
                         {
-                            var chatMessage = await _chatRepository.AddAsync(messageBody, chat, user);
-                            var serializeString = SerializeObject(chatMessage.ToMessageBody());
-                            var temp = Encoding.UTF8.GetBytes(serializeString);
-                            await SendMessageToAll(otherConnections, temp, WebSocketMessageType.Text);
+                            var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
+                            await SendMessageToAll(otherConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
                         }
                     }
                 }
@@ -106,14 +101,43 @@ namespace old_planner_api.src.Ws.App.Handler
             {
                 if (ws.State == WebSocketState.Open)
                     await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, errorMessage, CancellationToken.None);
+
+                await _chatRepository.UpdateLastViewingChatMembership(chatMembership, DateTime.UtcNow);
             }
         }
 
 
-        public async Task SendMessageToAll(IEnumerable<ChatSession> connections, byte[] bytes, WebSocketMessageType messageType)
+        public async Task SendMessageToAll(
+            IEnumerable<ChatSession> connections,
+            MessageBody message,
+            WebSocketMessageType messageType,
+            IEnumerable<Guid> userIds,
+            Chat chat
+        )
         {
+            var temp = connections.Select(e => e.User.Id);
+            var notConnectedUsers = userIds.Except(temp);
+            var bytes = SerializeObject(message);
+
+            var sendMessageTask = SendMessageToMainMonitoringService(message, notConnectedUsers, chat);
+
             foreach (var connection in connections)
                 await SendMessage(connection.Ws, bytes, messageType);
+
+            await sendMessageTask;
+        }
+
+        private async Task SendMessageToMainMonitoringService(MessageBody message, IEnumerable<Guid> userIds, Chat chat)
+        {
+            var chatMessageInfo = new ChatMessageInfo
+            {
+                ChatId = chat.Id,
+                ChatType = ChatType.Personal,
+                Message = message
+            };
+
+            foreach (var userId in userIds)
+                await _monitoringService.SendMessage(userId, chatMessageInfo);
         }
 
         private async Task SendMessage(WebSocket webSocket, byte[] bytes, WebSocketMessageType messageType)
@@ -149,6 +173,11 @@ namespace old_planner_api.src.Ws.App.Handler
             return stream;
         }
 
-        private string SerializeObject<T>(T obj) => JsonConvert.SerializeObject(obj);
+        private byte[] SerializeObject<T>(T obj)
+        {
+            var serializableString = JsonConvert.SerializeObject(obj);
+            var bytes = Encoding.UTF8.GetBytes(serializableString);
+            return bytes;
+        }
     }
 }

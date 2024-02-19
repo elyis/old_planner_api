@@ -7,47 +7,46 @@ namespace old_planner_api.src.Ws.App.Service
     public class TaskChatService : ITaskChatService
     {
         private readonly ILogger<TaskChatService> _logger;
-        private ConcurrentDictionary<Guid, TaskChatLobby> _taskChats { get; set; } = new();
+        private ConcurrentDictionary<Guid, TaskChatLobby> _chats { get; set; } = new();
 
         public TaskChatService(ILogger<TaskChatService> logger)
         {
             _logger = logger;
         }
 
-        public List<TaskChatSession> AddConnection(Guid chatId, TaskChatSession userConnection)
+        public TaskChatLobby AddConnection(Guid chatId, TaskChatSession session, List<Guid> userIds)
         {
             var chatLobby = new TaskChatLobby();
-            chatLobby = _taskChats.GetOrAdd(chatId, chatLobby);
-            var connections = chatLobby.Connections;
+            chatLobby = _chats.GetOrAdd(chatId, chatLobby);
+            var connections = chatLobby.ActiveConnections;
 
-            var existingConnection = connections.FirstOrDefault(e => e.User.Id == userConnection.User.Id);
+            var existingConnection = connections.FirstOrDefault(e => e.User.Id == session.User.Id);
             if (existingConnection == null)
-                connections.Add(userConnection);
+                connections.Add(session);
 
-            _logger.LogInformation($"connection is added {userConnection.User.Email}");
-            return connections;
+            chatLobby.ChatUsers = userIds;
+
+            _logger.LogInformation($"connection is added {session.User.Email}");
+            return chatLobby;
         }
 
-        public List<TaskChatSession> GetConnections(Guid chatId)
+        public TaskChatLobby? GetConnections(Guid chatId)
         {
-            if (_taskChats.TryGetValue(chatId, out var lobby))
-                return lobby.Connections;
-
-            return new List<TaskChatSession>();
+            return _chats.TryGetValue(chatId, out var lobby) ? lobby : null;
         }
 
         public void RemoveConnection(Guid chatId, TaskChatSession userConnection)
         {
-            if (_taskChats.TryGetValue(chatId, out var chat))
+            if (_chats.TryGetValue(chatId, out var chat))
             {
-                var existingConnection = chat.Connections
+                var existingConnection = chat.ActiveConnections
                     .FirstOrDefault(e => e.User.Id == userConnection.User.Id);
 
                 if (existingConnection != null)
                 {
-                    chat.Connections.Remove(existingConnection);
-                    if (!chat.Connections.Any())
-                        _taskChats.Remove(chatId, out var _);
+                    chat.ActiveConnections.Remove(existingConnection);
+                    if (!chat.ActiveConnections.Any())
+                        _chats.Remove(chatId, out var _);
                 }
 
                 _logger.LogInformation($"connection is deleted {userConnection.User.Email}");

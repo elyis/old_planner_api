@@ -14,39 +14,38 @@ namespace old_planner_api.src.Ws.App.Service
             _logger = logger;
         }
 
-        public List<ChatSession> AddConnection(Guid chatId, ChatSession session)
+        public ChatLobby AddConnection(Guid chatId, ChatSession session, List<Guid> userIds)
         {
             var chatLobby = new ChatLobby();
             chatLobby = _chats.GetOrAdd(chatId, chatLobby);
-            var connections = chatLobby.Connections;
+            var connections = chatLobby.ActiveConnections;
 
             var existingConnection = connections.FirstOrDefault(e => e.User.Id == session.User.Id);
             if (existingConnection == null)
                 connections.Add(session);
 
+            chatLobby.ChatUsers = userIds;
+
             _logger.LogInformation($"connection is added {session.User.Email}");
-            return connections;
+            return chatLobby;
         }
 
-        public List<ChatSession> GetConnections(Guid chatId)
+        public ChatLobby? GetConnections(Guid chatId)
         {
-            if (_chats.TryGetValue(chatId, out var lobby))
-                return lobby.Connections;
-
-            return new List<ChatSession>();
+            return _chats.TryGetValue(chatId, out var lobby) ? lobby : null;
         }
 
         public void RemoveConnection(Guid chatId, ChatSession session)
         {
             if (_chats.TryGetValue(chatId, out var chat))
             {
-                var existingConnection = chat.Connections
+                var existingConnection = chat.ActiveConnections
                     .FirstOrDefault(e => e.User.Id == session.User.Id);
 
                 if (existingConnection != null)
                 {
-                    chat.Connections.Remove(existingConnection);
-                    if (!chat.Connections.Any())
+                    chat.ActiveConnections.Remove(existingConnection);
+                    if (!chat.ActiveConnections.Any())
                         _chats.Remove(chatId, out var _);
                 }
 

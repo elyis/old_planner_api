@@ -9,7 +9,7 @@ namespace old_planner_api.src.Domain.Models
         public Guid Id { get; set; }
         public string Type { get; set; }
         public string Content { get; set; }
-        public DateTime CreatedAtDate { get; set; } = DateTime.UtcNow;
+        public DateTime SentAt { get; set; } = DateTime.UtcNow;
 
 
         public Guid ChatId { get; set; }
@@ -38,7 +38,7 @@ namespace old_planner_api.src.Domain.Models
                 Id = Id,
                 Type = messageType,
                 Content = messageType == MessageType.File ? $"{Constants.webPathToTaskChatAttachments}{Content}" : Content,
-                Date = CreatedAtDate,
+                Date = SentAt,
                 SenderId = SenderId,
             };
         }

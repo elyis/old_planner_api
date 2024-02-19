@@ -53,6 +53,13 @@ namespace old_planner_api.src.Infrastructure.Repository
             => await _context.Users
             .FirstOrDefaultAsync(e => e.Token == refreshTokenHash);
 
+        public async Task<List<UserModel>> GetUsersByPatternEmail(string email)
+        {
+            return await _context.Users
+                .Where(e => EF.Functions.Like(e.Email, $"%{email}%"))
+                .ToListAsync();
+        }
+
 
         public async Task<UserModel?> UpdateProfileIconAsync(Guid userId, string filename)
         {

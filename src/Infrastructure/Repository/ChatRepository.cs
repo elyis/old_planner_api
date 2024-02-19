@@ -5,6 +5,7 @@ using old_planner_api.src.Domain.Enums;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
 using old_planner_api.src.Infrastructure.Data;
+using SQLitePCL;
 
 namespace old_planner_api.src.Infrastructure.Repository
 {
@@ -205,6 +206,21 @@ namespace old_planner_api.src.Infrastructure.Repository
             await _context.SaveChangesAsync();
 
             return membership;
+        }
+
+        public async Task<List<ChatMessage>> GetChatMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true)
+        {
+            var query = _context.ChatMessages
+                .Where(e => e.ChatId == chatId);
+
+            query = isDescending
+                ? query.OrderByDescending(e => e.SentAt)
+                : query.OrderBy(e => e.SentAt);
+
+            return await query
+                .Skip(countSkipped)
+                .Take(count)
+                .ToListAsync();
         }
 
         public async Task<List<ChatBody>> GetUserChats(Guid userId)

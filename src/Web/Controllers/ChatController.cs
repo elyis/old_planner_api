@@ -8,6 +8,7 @@ using MimeDetective;
 using Newtonsoft.Json;
 using old_planner_api.src.Domain.Entities.Request;
 using old_planner_api.src.Domain.Entities.Response;
+using old_planner_api.src.Domain.Entities.Shared;
 using old_planner_api.src.Domain.Enums;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
@@ -205,11 +206,11 @@ namespace old_planner_api.src.Web.Controllers
         }
 
 
-        [HttpGet("api/chat/messages")]
+        [HttpGet("api/chat/last-messages")]
         [SwaggerOperation("Получить список последних сообщений в чате")]
         [SwaggerResponse(200, Type = typeof(IEnumerable<MessageBody>))]
 
-        public async Task<IActionResult> GetMessages(
+        public async Task<IActionResult> GetLastMessages(
             [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token,
             [FromQuery, Required] Guid chatId,
             [FromQuery, Range(0, int.MaxValue)] int count
@@ -224,6 +225,28 @@ namespace old_planner_api.src.Web.Controllers
                 return BadRequest();
 
             var messages = await _chatRepository.GetLastMessagesAndUpdateLastViewing(chatMembership, chatMembership.DateLastViewing, count);
+            var result = messages.Select(e => e.ToMessageBody());
+            return Ok(result);
+        }
+
+        [HttpPost("api/chat/messages")]
+        [SwaggerOperation("Получить список сообщений")]
+        [SwaggerResponse(200, Type = typeof(IEnumerable<MessageBody>))]
+        [SwaggerResponse(403)]
+
+        public async Task<IActionResult> GetMessages(
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token,
+            [FromQuery, Required] Guid chatId,
+            [FromBody, Required] DynamicDataLoadingOptions loadingOptions
+        )
+        {
+            var tokenInfo = _jwtService.GetTokenInfo(token);
+            var membership = await _chatRepository.GetMembershipAsync(chatId, tokenInfo.UserId);
+            if (membership == null)
+                return Forbid();
+
+            var messages = await _chatRepository.GetChatMessagesAsync(chatId, loadingOptions.Count, loadingOptions.LoadPosition);
+
             var result = messages.Select(e => e.ToMessageBody());
             return Ok(result);
         }

@@ -1,11 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using old_planner_api.src.Domain.Entities.Request;
 using old_planner_api.src.Domain.Entities.Response;
-using old_planner_api.src.Domain.Enums;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
 using old_planner_api.src.Infrastructure.Data;
-using old_planner_api.src.Ws.App.IService;
 
 namespace old_planner_api.src.Infrastructure.Repository
 {
@@ -135,6 +133,21 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .ToListAsync();
 
             return messages;
+        }
+
+        public async Task<List<TaskChatMessage>> GetChatMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true)
+        {
+            var query = _context.TaskChatMessages
+                .Where(e => e.ChatId == chatId);
+
+            query = isDescending
+                ? query.OrderByDescending(e => e.SentAt)
+                : query.OrderBy(e => e.SentAt);
+
+            return await query
+                .Skip(countSkipped)
+                .Take(count)
+                .ToListAsync();
         }
 
         public async Task<IEnumerable<TaskChatMessage>> GetLastMessagesAndUpdateLastViewing(TaskChatMembership chatMembership, DateTime startedTime, int count)

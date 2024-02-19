@@ -12,6 +12,7 @@ using old_planner_api.src.App.IService;
 using old_planner_api.src.App.Service;
 using old_planner_api.src.Ws.App.IService;
 using old_planner_api.src.Ws.App.Service;
+using Microsoft.AspNetCore.Authentication.Google;
 
 namespace old_planner_api
 {
@@ -63,6 +64,11 @@ namespace old_planner_api
                         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                         options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
                     })
+                .AddGoogle(options =>
+                {
+                    options.ClientSecret = "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";
+                    options.ClientId = "97012875435-oq304igtldgslsb9kntfp64ba5ej92jo.apps.googleusercontent.com";
+                })
                 .AddJwtBearer(options => options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = false,

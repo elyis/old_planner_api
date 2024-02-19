@@ -36,5 +36,32 @@ namespace old_planner_api.src.Web.Controllers
             var user = await _userRepository.GetAsync(tokenInfo.UserId);
             return user == null ? NotFound() : Ok(user.ToProfileBody());
         }
+
+        [HttpGet("user")]
+        [SwaggerOperation("Получить профиль пользователя")]
+        [SwaggerResponse(200, Type = typeof(ProfileBody))]
+        [SwaggerResponse(404)]
+
+        public async Task<IActionResult> GetUserInfo(
+            [FromQuery, EmailAddress] string email
+        )
+        {
+            var user = await _userRepository.GetAsync(email);
+            return user == null ? NotFound() : Ok(user.ToProfileBody());
+        }
+
+
+        [HttpGet("users")]
+        [SwaggerOperation("Получить список пользователей по паттерну почты")]
+        [SwaggerResponse(200, Type = typeof(List<ProfileBody>))]
+
+        public async Task<IActionResult> GetUsersBy(
+            [FromQuery, Required] string emailPattern
+        )
+        {
+            var users = await _userRepository.GetUsersByPatternEmail(emailPattern);
+            var result = users.Select(e => e.ToProfileBody());
+            return Ok(result);
+        }
     }
 }

@@ -2,7 +2,7 @@ using System.Net.WebSockets;
 
 namespace old_planner_api.src.Ws.Entities
 {
-    public class MainMonitoringSession
+    public class UserNotificationSession
     {
         public WebSocket Socket { get; set; }
     }

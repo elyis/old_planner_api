@@ -8,24 +8,24 @@ using old_planner_api.src.Ws.Entities;
 
 namespace old_planner_api.src.Ws.App.Service
 {
-    public class MainMonitoringService : IMainMonitoringService
+    public class WsNotificationService : INotificationService
     {
         private readonly ILogger<MainMonitoringService> _logger;
-        private ConcurrentDictionary<Guid, MainMonitoringSession> _sessions { get; set; } = new();
+        private ConcurrentDictionary<Guid, UserNotificationSession> _sessions { get; set; } = new();
 
-        public MainMonitoringService(ILogger<MainMonitoringService> logger)
+        public WsNotificationService(ILogger<MainMonitoringService> logger)
         {
             _logger = logger;
         }
 
-        public MainMonitoringSession AddConnection(Guid userId, MainMonitoringSession session)
+        public UserNotificationSession AddConnection(Guid userId, UserNotificationSession session)
         {
-            var monitoringSession = _sessions.GetOrAdd(userId, session);
-            _logger.LogInformation($"Main monitoring connection is added");
-            return monitoringSession;
+            var userNotificationSession = _sessions.GetOrAdd(userId, session);
+            _logger.LogInformation($"user notification session created for {userId}");
+            return userNotificationSession;
         }
 
-        public MainMonitoringSession? GetConnections(Guid userId)
+        public UserNotificationSession? GetConnections(Guid userId)
         {
             return _sessions.TryGetValue(userId, out var session) ? session : null;
         }
@@ -34,7 +34,7 @@ namespace old_planner_api.src.Ws.App.Service
         {
             if (_sessions.TryRemove(userId, out var _))
             {
-                _logger.LogInformation($"Main monitoring connection is removed");
+                _logger.LogInformation($"user notification session is removed for {userId}");
                 return true;
             }
 
@@ -73,5 +73,6 @@ namespace old_planner_api.src.Ws.App.Service
         }
 
         private string SerializeObject<T>(T obj) => JsonConvert.SerializeObject(obj);
+
     }
 }

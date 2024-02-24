@@ -5,7 +5,6 @@ using old_planner_api.src.Domain.Enums;
 using old_planner_api.src.Domain.IRepository;
 using old_planner_api.src.Domain.Models;
 using old_planner_api.src.Infrastructure.Data;
-using SQLitePCL;
 
 namespace old_planner_api.src.Infrastructure.Repository
 {
@@ -56,18 +55,6 @@ namespace old_planner_api.src.Infrastructure.Repository
             await _context.SaveChangesAsync();
 
             return chat;
-        }
-
-        public async Task<IEnumerable<ChatMessage>> GetLastMessagesAndUpdateLastViewing(ChatMembership chatMembership, DateTime startedTime, int count)
-        {
-            var messages = await GetLastMessages(chatMembership, startedTime, count);
-            if (messages.Any())
-            {
-                var lastMessage = messages.Last();
-                await UpdateLastViewingChatMembership(chatMembership, lastMessage.SentAt);
-            }
-
-            return messages;
         }
 
         public async Task<ChatMembership?> AddMembershipAsync(UserModel user, Chat chat)
@@ -135,24 +122,6 @@ namespace old_planner_api.src.Infrastructure.Repository
         public async Task<ChatMessage?> GetMessageAsync(Guid id)
             => await _context.ChatMessages.FindAsync(id);
 
-        public async Task<IEnumerable<ChatMessage>> GetLastMessages(ChatMembership chatMembership, DateTime startedTime, int count)
-        {
-            var messages = await _context.ChatMessages
-                .OrderBy(e => e.SentAt)
-                .Where(e => e.SentAt > startedTime && e.ChatId == chatMembership.ChatId)
-                .Take(count)
-                .ToListAsync();
-
-            var lastMessage = messages.LastOrDefault();
-            if (lastMessage != null)
-            {
-                chatMembership.DateLastViewing = lastMessage.SentAt;
-                await _context.SaveChangesAsync();
-            }
-
-            return messages;
-        }
-
         public async Task<bool> UpdateLastViewingChatMembership(ChatMembership chatMembership, DateTime lastViewingDate)
         {
             if (chatMembership == null)
@@ -208,7 +177,7 @@ namespace old_planner_api.src.Infrastructure.Repository
             return membership;
         }
 
-        public async Task<List<ChatMessage>> GetChatMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true)
+        public async Task<List<ChatMessage>> GetMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true)
         {
             var query = _context.ChatMessages
                 .Where(e => e.ChatId == chatId);
@@ -247,16 +216,22 @@ namespace old_planner_api.src.Infrastructure.Repository
             {
                 var userMembership = chats.First(e => e.ChatId == chatMembership.Key);
                 var chat = userMembership.Chat;
+                var dateLastViewing = userMembership.DateLastViewing;
+
+                var countOfUnreadMessages = await _context.ChatMessages
+                    .CountAsync(e => e.SentAt > dateLastViewing);
 
                 var lastMessage = await _context.ChatMessages
-                    .FirstOrDefaultAsync(e => e.SentAt > userMembership.DateLastViewing);
-
+                        .Where(e => e.SentAt > dateLastViewing)
+                        .OrderByDescending(e => e.SentAt)
+                        .FirstOrDefaultAsync();
 
                 var chatBody = new ChatBody
                 {
                     Id = chat.Id,
                     Name = chat.Name,
                     ImageUrl = chat.Image == null ? null : $"{Constants.webPathToPrivateChatIcons}{chat.Image}",
+                    CountOfUnreadMessages = countOfUnreadMessages,
                     Participants = chatMembership.Select(e => e.User.ToChatUserInfo()).ToList(),
                     LastMessage = lastMessage?.ToMessageBody()
                 };

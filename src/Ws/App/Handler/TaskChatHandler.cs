@@ -16,15 +16,18 @@ namespace old_planner_api.src.Ws.App.Handler
     {
         private readonly ITaskChatRepository _chatRepository;
         private readonly IMainMonitoringService _monitoringService;
+        private readonly INotificationService _notificationService;
         private readonly ILogger<TaskChatHandler> _logger;
 
         public TaskChatHandler(
             IMainMonitoringService monitoringService,
+            INotificationService notificationService,
             ITaskChatRepository chatRepository,
             ILogger<TaskChatHandler> logger
         )
         {
             _monitoringService = monitoringService;
+            _notificationService = notificationService;
             _chatRepository = chatRepository;
             _logger = logger;
         }
@@ -119,25 +122,46 @@ namespace old_planner_api.src.Ws.App.Handler
             var notConnectedUsers = userIds.Except(temp);
             var bytes = SerializeObject(message);
 
-            var sendMessageTask = SendMessageToMainMonitoringService(message, notConnectedUsers, chat);
+            var sendMessageTask = SendMessageToMainMonitoringService(message, notConnectedUsers, chat.Id);
 
             foreach (var connection in connections)
                 await SendMessage(connection.Ws, bytes, messageType);
 
-            await sendMessageTask;
+            var usersAreOffline = await sendMessageTask;
+            await SendNotifications(message, usersAreOffline, chat.Id);
         }
 
-        private async Task SendMessageToMainMonitoringService(MessageBody message, IEnumerable<Guid> userIds, TaskChat chat)
+        private async Task<IEnumerable<Guid>> SendMessageToMainMonitoringService(MessageBody message, IEnumerable<Guid> userIds, Guid chatId)
         {
+            var notSendedUsers = new List<Guid>();
             var chatMessageInfo = new ChatMessageInfo
             {
-                ChatId = chat.Id,
+                ChatId = chatId,
                 ChatType = ChatType.Task,
                 Message = message
             };
 
             foreach (var userId in userIds)
-                await _monitoringService.SendMessage(userId, chatMessageInfo);
+            {
+                var isSended = await _monitoringService.SendMessage(userId, chatMessageInfo);
+                if (!isSended)
+                    notSendedUsers.Add(userId);
+            }
+
+            return notSendedUsers;
+        }
+
+        private async Task SendNotifications(MessageBody message, IEnumerable<Guid> userIds, Guid chatId)
+        {
+            var chatMessageInfo = new ChatMessageInfo
+            {
+                ChatId = chatId,
+                ChatType = ChatType.Task,
+                Message = message
+            };
+
+            foreach (var userId in userIds)
+                await _notificationService.SendMessage(userId, chatMessageInfo);
         }
 
         private async Task SendMessage(WebSocket webSocket, byte[] bytes, WebSocketMessageType messageType)

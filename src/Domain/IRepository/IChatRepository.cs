@@ -11,11 +11,9 @@ namespace old_planner_api.src.Domain.IRepository
         Task<List<ChatMembership>> GetChatMembershipsAsync(Guid chatId);
         Task<ChatMembership?> GetMembershipAsync(Guid chatId, Guid userId);
         Task<ChatMessage?> AddMessageAsync(CreateMessageBody messageBody, Chat chat, UserModel sender);
-        Task<IEnumerable<ChatMessage>> GetLastMessagesAndUpdateLastViewing(ChatMembership chatMembership, DateTime startedTime, int count);
         Task<ChatMessage?> GetMessageAsync(Guid id);
         Task<Chat?> UpdateChatImage(Guid chatId, string filename);
-        Task<List<ChatMessage>> GetChatMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true);
-        Task<IEnumerable<ChatMessage>> GetLastMessages(ChatMembership chatMembership, DateTime startedTime, int count);
+        Task<List<ChatMessage>> GetMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true);
         Task<bool> UpdateLastViewingChatMembership(ChatMembership chatMembership, DateTime lastViewingDate);
         Task<ChatMembership?> CreateOrGetChatMembershipAsync(Chat chat, UserModel user);
         Task<ChatMembership?> AddUserToChatAsync(Chat chat, UserModel user);

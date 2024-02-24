@@ -42,9 +42,16 @@ namespace old_planner_api.src.Infrastructure.Repository
             {
                 var userMembership = chats.First(e => e.ChatId == chatMembership.Key);
                 var chat = userMembership.Chat;
+                var dateLastViewing = userMembership.DateLastViewing;
+
+                var countOfUnreadMessages = await _context.TaskChatMessages
+                    .CountAsync(e => e.SentAt > dateLastViewing);
 
                 var lastMessage = await _context.TaskChatMessages
-                    .FirstOrDefaultAsync(e => e.SentAt > userMembership.DateLastViewing);
+                        .Where(e => e.SentAt > dateLastViewing)
+                        .OrderByDescending(e => e.SentAt)
+                        .FirstOrDefaultAsync();
+
 
                 var chatBody = new TaskChatBody
                 {
@@ -52,6 +59,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                     Name = chat.Name,
                     ImageUrl = chat.Image == null ? null : $"{Constants.webPathToTaskChatIcons}{chat.Image}",
                     Participants = chatMembership.Select(e => e.Participant.ToChatUserInfo()).ToList(),
+                    CountOfUnreadMessages = countOfUnreadMessages,
                     LastMesssage = lastMessage?.ToMessageBody()
                 };
                 result.Add(chatBody);
@@ -124,18 +132,7 @@ namespace old_planner_api.src.Infrastructure.Repository
         public async Task<TaskChat?> GetChatAsync(Guid id)
             => await _context.TaskChats.FindAsync(id);
 
-        public async Task<IEnumerable<TaskChatMessage>> GetLastMessages(TaskChatMembership chatMembership, DateTime startedTime, int count)
-        {
-            var messages = await _context.TaskChatMessages
-                .OrderBy(e => e.SentAt)
-                .Where(e => e.SentAt >= startedTime && e.ChatId == chatMembership.ChatId)
-                .Take(count)
-                .ToListAsync();
-
-            return messages;
-        }
-
-        public async Task<List<TaskChatMessage>> GetChatMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true)
+        public async Task<List<TaskChatMessage>> GetMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true)
         {
             var query = _context.TaskChatMessages
                 .Where(e => e.ChatId == chatId);
@@ -148,18 +145,6 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .Skip(countSkipped)
                 .Take(count)
                 .ToListAsync();
-        }
-
-        public async Task<IEnumerable<TaskChatMessage>> GetLastMessagesAndUpdateLastViewing(TaskChatMembership chatMembership, DateTime startedTime, int count)
-        {
-            var messages = await GetLastMessages(chatMembership, startedTime, count);
-            if (messages.Any())
-            {
-                var lastMessage = messages.Last();
-                await UpdateLastViewingChatMembership(chatMembership, lastMessage.SentAt);
-            }
-
-            return messages;
         }
 
         public async Task<bool> UpdateLastViewingChatMembership(TaskChatMembership chatMembership, DateTime lastViewingDate)

@@ -12,7 +12,8 @@ using old_planner_api.src.App.IService;
 using old_planner_api.src.App.Service;
 using old_planner_api.src.Ws.App.IService;
 using old_planner_api.src.Ws.App.Service;
-using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using old_planner_api.src.Domain.Entities.Config;
 
 namespace old_planner_api
 {
@@ -29,11 +30,13 @@ namespace old_planner_api
         public void ConfigureServices(IServiceCollection services)
         {
             var jwtSettings = _config.GetSection("JwtSettings").Get<JwtSettings>() ?? throw new Exception("jwt settings is empty");
+            var googleSettings = _config.GetSection("GoogleSettings").Get<GoogleSettings>() ?? throw new Exception("google options is empty");
             var fileInspector = new ContentInspectorBuilder()
             {
                 Definitions = MimeDetective.Definitions.Default.All(),
             }
             .Build();
+
 
             services.AddControllers(config =>
             {
@@ -62,20 +65,29 @@ namespace old_planner_api
                     {
                         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                         options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                        options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+                        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
                     })
+                .AddCookie(options =>
+                {
+                    options.Cookie.SameSite = SameSiteMode.None;
+                    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                    options.LoginPath = "/google-login";
+                })
                 .AddGoogle(options =>
                 {
-                    options.ClientSecret = "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";
-                    options.ClientId = "97012875435-oq304igtldgslsb9kntfp64ba5ej92jo.apps.googleusercontent.com";
+                    options.ClientSecret = googleSettings.ClientSecret;
+                    options.ClientId = googleSettings.ClientId;
                 })
-                .AddJwtBearer(options => options.TokenValidationParameters = new TokenValidationParameters
+                .AddJwtBearer(options =>
                 {
-                    ValidateIssuer = false,
-                    ValidateAudience = false,
-                    ValidateIssuerSigningKey = true,
-                    ValidateLifetime = true,
-                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key))
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = false,
+                        ValidateAudience = false,
+                        ValidateIssuerSigningKey = true,
+                        ValidateLifetime = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
+                    };
                 });
 
             services.AddAuthorization();
@@ -104,6 +116,7 @@ namespace old_planner_api
             services.AddSingleton<ITaskChatService, TaskChatService>();
             services.AddSingleton<IChatService, ChatService>();
             services.AddSingleton<IMainMonitoringService, MainMonitoringService>();
+            services.AddSingleton<INotificationService, WsNotificationService>();
             services.AddSingleton(fileInspector);
             services.AddSingleton(jwtSettings);
 

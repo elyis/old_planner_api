@@ -113,11 +113,11 @@ namespace old_planner_api.src.Web.Controllers
         public async Task<IActionResult> CreatePersonalChat(
             [FromBody, Required] CreateChatBody chatBody,
             [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token,
-            [FromHeader, EmailAddress, Required] string email
+            [FromHeader, Required] string identifier
         )
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var addedUser = await _userRepository.GetAsync(email);
+            var addedUser = await _userRepository.GetAsync(identifier);
             if (addedUser == null)
                 return NotFound("user not found");
 

@@ -7,9 +7,12 @@ namespace old_planner_api.src.Domain.IRepository
     {
         Task<UserModel?> AddAsync(SignUpBody body, string role);
         Task<UserModel?> GetAsync(Guid id);
-        Task<List<UserModel>> GetUsersAsync(List<string> userEmails);
-        Task<List<UserModel>> GetUsersByPatternEmail(string email);
-        Task<UserModel?> GetAsync(string email);
+        Task<UserModel?> GetByUserTagAsync(string userTag);
+        Task<List<UserModel>> GetUsersByPatternUserTag(string patternUserTag);
+        Task<List<UserModel>> GetUsersAsync(List<string> identifiers);
+        Task<List<UserModel>> GetUsersByPatternIdentifier(string identifier);
+        Task<UserModel?> UpdateUserTagAsync(Guid id, string userTag);
+        Task<UserModel?> GetAsync(string identifier);
         Task<string?> UpdateTokenAsync(string refreshToken, Guid userId, TimeSpan? duration = null);
         Task<UserModel?> GetByTokenAsync(string refreshTokenHash);
         Task<UserModel?> UpdateProfileIconAsync(Guid userId, string filename);

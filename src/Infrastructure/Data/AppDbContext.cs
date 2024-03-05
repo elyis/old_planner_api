@@ -31,7 +31,7 @@ namespace old_planner_api.src.Infrastructure.Data
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             var connectionString = _config.GetConnectionString("Default");
-            optionsBuilder.UseSqlite(connectionString);
+            optionsBuilder.UseNpgsql(connectionString);
             // optionsBuilder.EnableSensitiveDataLogging();
             base.OnConfiguring(optionsBuilder);
         }

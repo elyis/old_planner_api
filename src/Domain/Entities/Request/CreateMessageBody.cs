@@ -11,4 +11,10 @@ namespace old_planner_api.src.Domain.Entities.Request
         [Required]
         public string Content { get; set; }
     }
+
+    public class SentMessage
+    {
+        public CreateMessageBody? MessageBody { get; set; }
+        public Guid? LastMessageReadId { get; set; }
+    }
 }

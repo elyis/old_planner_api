@@ -196,15 +196,15 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             var result = new List<ChatBody>();
 
-            var chats = await _context.ChatMemberships
+            var userChatMemberships = await _context.ChatMemberships
                 .Include(e => e.Chat)
                 .Where(e => e.UserId == userId)
                 .ToListAsync();
 
-            if (!chats.Any())
+            if (!userChatMemberships.Any())
                 return result;
 
-            var chatIds = chats.Select(e => e.ChatId);
+            var chatIds = userChatMemberships.Select(e => e.ChatId);
 
             var chatMemberships = await _context.ChatMemberships
                 .Include(e => e.User)
@@ -214,7 +214,7 @@ namespace old_planner_api.src.Infrastructure.Repository
 
             foreach (var chatMembership in chatMemberships)
             {
-                var userMembership = chats.First(e => e.ChatId == chatMembership.Key);
+                var userMembership = userChatMemberships.First(e => e.ChatId == chatMembership.Key);
                 var chat = userMembership.Chat;
                 var dateLastViewing = userMembership.DateLastViewing;
 

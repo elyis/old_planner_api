@@ -1,17 +1,20 @@
 using System.ComponentModel.DataAnnotations;
+using old_planner_api.src.Domain.Enums;
 
 namespace old_planner_api.src.Domain.Entities.Request
 {
     public class SignUpBody
     {
-        [EmailAddress]
         [Required]
-        public string Email { get; set; }
+        public string Identifier { get; set; }
 
         [Required]
-        public string Fullname { get; set; }
+        public string Nickname { get; set; }
 
         [Required]
         public string Password { get; set; }
+
+        [EnumDataType(typeof(AuthenticationMethod))]
+        public AuthenticationMethod Method { get; set; }
     }
 }

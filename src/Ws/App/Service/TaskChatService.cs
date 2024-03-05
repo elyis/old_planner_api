@@ -26,7 +26,7 @@ namespace old_planner_api.src.Ws.App.Service
 
             chatLobby.ChatUsers = userIds;
 
-            _logger.LogInformation($"connection is added {session.User.Email}");
+            _logger.LogInformation($"connection is added {session.User.Identifier}");
             return chatLobby;
         }
 
@@ -49,7 +49,7 @@ namespace old_planner_api.src.Ws.App.Service
                         _chats.Remove(chatId, out var _);
                 }
 
-                _logger.LogInformation($"connection is deleted {userConnection.User.Email}");
+                _logger.LogInformation($"connection is deleted {userConnection.User.Identifier}");
             }
         }
     }

@@ -52,8 +52,9 @@ namespace old_planner_api.src.Web.Controllers.View
 
             var signUpBody = new SignUpBody
             {
-                Email = email,
-                Fullname = name,
+                Identifier = email,
+                Method = AuthenticationMethod.Email,
+                Nickname = name,
                 Password = Hmac512Provider.Compute(nameIdentifier)
             };
 
@@ -63,7 +64,8 @@ namespace old_planner_api.src.Web.Controllers.View
 
             var signInBody = new SignInBody
             {
-                Email = email,
+                Identifier = email,
+                Method = AuthenticationMethod.Email,
                 Password = Hmac512Provider.Compute(nameIdentifier)
             };
             var signInResponse = await _authService.SignIn(signInBody);

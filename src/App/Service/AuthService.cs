@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using webApiTemplate.src.App.IService;
 using webApiTemplate.src.App.Provider;
 using webApiTemplate.src.Domain.Entities.Shared;
+using old_planner_api.src.Domain.Enums;
+using System.Text.RegularExpressions;
 
 namespace old_planner_api.src.App.Service
 {
@@ -36,7 +38,11 @@ namespace old_planner_api.src.App.Service
 
         public async Task<IActionResult> SignIn(SignInBody body)
         {
-            var user = await _userRepository.GetAsync(body.Email);
+            var isValidIdentifier = IsValidAuthenticationIdentifier(body.Identifier, body.Method);
+            if (!isValidIdentifier)
+                return new BadRequestResult();
+
+            var user = await _userRepository.GetAsync(body.Identifier);
             if (user == null)
                 return new NotFoundResult();
 
@@ -50,6 +56,10 @@ namespace old_planner_api.src.App.Service
 
         public async Task<IActionResult> SignUp(SignUpBody body, string rolename)
         {
+            var isValidIdentifier = IsValidAuthenticationIdentifier(body.Identifier, body.Method);
+            if (!isValidIdentifier)
+                return new BadRequestResult();
+
             var user = await _userRepository.AddAsync(body, rolename);
             if (user == null)
                 return new ConflictResult();
@@ -69,6 +79,28 @@ namespace old_planner_api.src.App.Service
             var tokenPair = _jwtService.GenerateDefaultTokenPair(tokenInfo);
             tokenPair.RefreshToken = await _userRepository.UpdateTokenAsync(tokenPair.RefreshToken, tokenInfo.UserId);
             return tokenPair;
+        }
+
+        private bool IsValidAuthenticationIdentifier(string identifier, AuthenticationMethod method)
+        {
+            return method switch
+            {
+                AuthenticationMethod.Email => IsValidEmail(identifier),
+                AuthenticationMethod.Phone => IsValidPhoneNumber(identifier),
+                _ => false,
+            };
+        }
+
+        private bool IsValidEmail(string email)
+        {
+            var emailRegex = new Regex(@"^[^\s@]+@[^\s@]+\.[^\s@]+$");
+            return emailRegex.IsMatch(email);
+        }
+
+        private bool IsValidPhoneNumber(string phoneNumber)
+        {
+            var phoneRegex = new Regex(@"^\+?\d+$");
+            return phoneRegex.IsMatch(phoneNumber);
         }
     }
 }

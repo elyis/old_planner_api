@@ -134,24 +134,18 @@ namespace old_planner_api.src.Web.Controllers
 
         public async Task<IActionResult> AddUsersToTaskChatMembership(
             [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token,
-            [FromHeader, Required] List<string> userEmails,
+            [FromHeader, Required] List<string> identifiers,
             [FromHeader, Required] Guid chatId
         )
         {
-            var userEmailsSet = userEmails.ToHashSet().ToList();
-            var users = await _userRepository.GetUsersAsync(userEmailsSet);
-            foreach (var userEmail in userEmailsSet)
-            {
-                if (!IsValidEmail(userEmail))
-                    return BadRequest($"Invalid email format: {userEmail}");
-            }
-
+            var userIdentifiers = identifiers.ToHashSet().ToList();
+            var users = await _userRepository.GetUsersAsync(userIdentifiers);
 
             var chat = await _chatRepository.GetChatAsync(chatId);
             if (chat == null)
                 return BadRequest("chatId is empty");
 
-            if (users.Count != userEmailsSet.Count)
+            if (users.Count != userIdentifiers.Count)
                 return BadRequest();
 
             var notAddedUsers = new List<string>();
@@ -159,7 +153,7 @@ namespace old_planner_api.src.Web.Controllers
             {
                 var result = await _chatRepository.AddChatMembershipAsync(chat, user);
                 if (result == null)
-                    notAddedUsers.Add(user.Email);
+                    notAddedUsers.Add(user.Identifier);
             }
 
             return Ok(notAddedUsers);
@@ -274,20 +268,6 @@ namespace old_planner_api.src.Web.Controllers
 
             var fileExtension = Path.GetExtension(filename);
             return File(bytes, $"image/{fileExtension}", filename);
-        }
-
-
-        private bool IsValidEmail(string email)
-        {
-            try
-            {
-                var addr = new MailAddress(email);
-                return addr.Address == email;
-            }
-            catch
-            {
-                return false;
-            }
         }
     }
 }

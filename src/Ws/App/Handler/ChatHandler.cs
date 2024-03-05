@@ -53,6 +53,7 @@ namespace old_planner_api.src.Ws.App.Handler
         {
             var ws = currentSession.Ws;
             string? errorMessage = null;
+            DateTime? dateLastViewingMessage = null;
 
             try
             {
@@ -73,31 +74,42 @@ namespace old_planner_api.src.Ws.App.Handler
 
                     if (input != null)
                     {
-                        var messageBody = JsonConvert.DeserializeObject<CreateMessageBody>(input);
+                        var sentMessage = JsonConvert.DeserializeObject<SentMessage>(input);
 
-                        var userIds = chatUserIds.Where(userId => userId != user.Id);
-                        if (messageBody.Type == MessageType.File && Guid.TryParse(messageBody.Content, out var messageId))
+                        if (sentMessage.LastMessageReadId != null)
                         {
-                            var message = await _chatRepository.GetMessageAsync(messageId);
-                            if (message != null)
-                                await SendMessageToAll(connections, message.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
+                            var message = await _chatRepository.GetMessageAsync((Guid)sentMessage.LastMessageReadId);
+                            dateLastViewingMessage = message?.SentAt;
                         }
                         else
                         {
-                            var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
-                            await SendMessageToAll(otherConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
+                            var messageBody = sentMessage.MessageBody;
+                            var userIds = chatUserIds.Where(userId => userId != user.Id);
+                            if (messageBody.Type == MessageType.File && Guid.TryParse(messageBody.Content, out var messageId))
+                            {
+                                var message = await _chatRepository.GetMessageAsync(messageId);
+                                if (message != null)
+                                    await SendMessageToAll(connections, message.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
+                            }
+                            else
+                            {
+                                var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
+                                await SendMessageToAll(otherConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
+                            }
+
+                            dateLastViewingMessage = DateTime.UtcNow;
                         }
                     }
                 }
             }
             catch (JsonSerializationException e)
             {
-                _logger.LogInformation($"{e.Message} by {currentSession.User.Email}");
+                _logger.LogInformation($"{e.Message} by {currentSession.User.Identifier}");
                 errorMessage = e.Message;
             }
             catch (WebSocketException e)
             {
-                _logger.LogInformation($"{e.Message} by {currentSession.User.Email}");
+                _logger.LogInformation($"{e.Message} by {currentSession.User.Identifier}");
                 errorMessage = e.Message;
             }
             finally
@@ -105,7 +117,8 @@ namespace old_planner_api.src.Ws.App.Handler
                 if (ws.State == WebSocketState.Open)
                     await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, errorMessage, CancellationToken.None);
 
-                await _chatRepository.UpdateLastViewingChatMembership(chatMembership, DateTime.UtcNow);
+                if (dateLastViewingMessage != null)
+                    await _chatRepository.UpdateLastViewingChatMembership(chatMembership, (DateTime)dateLastViewingMessage);
             }
         }
 
@@ -129,7 +142,6 @@ namespace old_planner_api.src.Ws.App.Handler
 
             var usersAreOffline = await sendMessageTask;
             await SendNotifications(message, usersAreOffline, chat);
-
         }
 
         private async Task<IEnumerable<Guid>> SendMessageToMainMonitoringService(MessageBody message, IEnumerable<Guid> userIds, Chat chat)

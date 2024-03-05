@@ -37,29 +37,67 @@ namespace old_planner_api.src.Web.Controllers
             return user == null ? NotFound() : Ok(user.ToProfileBody());
         }
 
+        [HttpPatch("userTag"), Authorize]
+        [SwaggerOperation("Изменить пользовательский тег")]
+        [SwaggerResponse(200)]
+        [SwaggerResponse(400)]
+
+        public async Task<IActionResult> ChangeUserTag(
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token,
+            [FromQuery, Required] string userTag
+        )
+        {
+            var tokenInfo = _jwtService.GetTokenInfo(token);
+            var user = await _userRepository.UpdateUserTagAsync(tokenInfo.UserId, userTag);
+            return user == null ? BadRequest() : Ok();
+        }
+
+        [HttpGet("userTag")]
+        [SwaggerOperation("Получить профиль пользователя по пользовательскому тегу")]
+        [SwaggerResponse(200, Type = typeof(ProfileBody))]
+        [SwaggerResponse(404)]
+
+        public async Task<IActionResult> GetUserProfileByUserTag([FromQuery, Required] string userTag)
+        {
+            var user = await _userRepository.GetByUserTagAsync(userTag);
+            return user == null ? NotFound() : Ok(user.ToProfileBody());
+        }
+
+        [HttpGet("users/userTag")]
+        [SwaggerOperation("Получить список пользователей по паттерну userTag")]
+        [SwaggerResponse(200, Type = typeof(List<ProfileBody>))]
+
+        public async Task<IActionResult> GetUsersByPatternUserTag([FromQuery, Required] string patternUserTag)
+        {
+            var users = await _userRepository.GetUsersByPatternUserTag(patternUserTag);
+            var result = users.Select(e => e.ToProfileBody());
+            return Ok(result);
+        }
+
+
         [HttpGet("user")]
         [SwaggerOperation("Получить профиль пользователя")]
         [SwaggerResponse(200, Type = typeof(ProfileBody))]
         [SwaggerResponse(404)]
 
         public async Task<IActionResult> GetUserInfo(
-            [FromQuery, EmailAddress] string email
+            [FromQuery, Required] string identifier
         )
         {
-            var user = await _userRepository.GetAsync(email);
+            var user = await _userRepository.GetAsync(identifier);
             return user == null ? NotFound() : Ok(user.ToProfileBody());
         }
 
 
-        [HttpGet("users")]
-        [SwaggerOperation("Получить список пользователей по паттерну почты")]
+        [HttpGet("users/identifier")]
+        [SwaggerOperation("Получить список пользователей по паттерну")]
         [SwaggerResponse(200, Type = typeof(List<ProfileBody>))]
 
         public async Task<IActionResult> GetUsersBy(
-            [FromQuery, Required] string emailPattern
+            [FromQuery, Required] string identifierPattern
         )
         {
-            var users = await _userRepository.GetUsersByPatternEmail(emailPattern);
+            var users = await _userRepository.GetUsersByPatternIdentifier(identifierPattern);
             var result = users.Select(e => e.ToProfileBody());
             return Ok(result);
         }

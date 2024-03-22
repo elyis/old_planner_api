@@ -5,6 +5,7 @@ namespace old_planner_api.src.Domain.Entities.Response
     public class ChatUserInfo
     {
         public Guid Id { get; set; }
+        public string Nickname { get; set; }
         public string Identifier { get; set; }
         public string? ImageUrl { get; set; }
         public string? UserTag { get; set; }

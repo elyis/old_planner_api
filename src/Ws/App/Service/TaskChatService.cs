@@ -4,7 +4,7 @@ using old_planner_api.src.Ws.Entities;
 
 namespace old_planner_api.src.Ws.App.Service
 {
-    public class TaskChatService : ITaskChatService
+    public class TaskChatService : ITaskChatConnectionService
     {
         private readonly ILogger<TaskChatService> _logger;
         private ConcurrentDictionary<Guid, TaskChatLobby> _chats { get; set; } = new();

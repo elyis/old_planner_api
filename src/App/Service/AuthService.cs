@@ -26,13 +26,21 @@ namespace old_planner_api.src.App.Service
             _jwtService = jwtService;
         }
 
-        public async Task<IActionResult> RestoreToken(string refreshToken)
+        public async Task<IActionResult> RestoreToken(string refreshToken, string deviceId, DeviceTypeId deviceTypeId)
         {
+            var isValidDeviceId = IsValidDeviceId(deviceId, deviceTypeId);
+            if (!isValidDeviceId)
+                return new BadRequestObjectResult("DeviceId is not correct format");
+
             var user = await _userRepository.GetByTokenAsync(refreshToken);
             if (user == null)
                 return new NotFoundResult();
 
-            var tokenPair = await UpdateToken(user.RoleName, user.Id);
+            var session = await _userRepository.GetSessionAsync(user.Id, deviceId);
+            if (session == null)
+                return new ForbidResult();
+
+            var tokenPair = await UpdateToken(user.RoleName, user.Id, session.Id);
             return new OkObjectResult(tokenPair);
         }
 
@@ -42,6 +50,10 @@ namespace old_planner_api.src.App.Service
             if (!isValidIdentifier)
                 return new BadRequestResult();
 
+            var isValidDeviceId = IsValidDeviceId(body.DeviceId, body.DeviceTypeId);
+            if (!isValidDeviceId)
+                return new BadRequestObjectResult("DeviceId is not correct format");
+
             var user = await _userRepository.GetAsync(body.Identifier);
             if (user == null)
                 return new NotFoundResult();
@@ -50,7 +62,8 @@ namespace old_planner_api.src.App.Service
             if (user.PasswordHash != inputPasswordHash)
                 return new BadRequestResult();
 
-            var tokenPair = await UpdateToken(user.RoleName, user.Id);
+            var session = await _userRepository.AddOrGetUserSessionAsync(body.DeviceId, user);
+            var tokenPair = await UpdateToken(user.RoleName, user.Id, session.Id);
             return new OkObjectResult(tokenPair);
         }
 
@@ -60,25 +73,46 @@ namespace old_planner_api.src.App.Service
             if (!isValidIdentifier)
                 return new BadRequestResult();
 
+            var isValidDeviceId = IsValidDeviceId(body.DeviceId, body.DeviceTypeId);
+            if (!isValidDeviceId)
+                return new BadRequestObjectResult("DeviceId is not correct format");
+
             var user = await _userRepository.AddAsync(body, rolename);
             if (user == null)
                 return new ConflictResult();
 
-            var tokenPair = await UpdateToken(rolename, user.Id);
+            var session = await _userRepository.AddOrGetUserSessionAsync(body.DeviceId, user);
+            var tokenPair = await UpdateToken(rolename, user.Id, session.Id);
             return new OkObjectResult(tokenPair);
         }
 
-        private async Task<TokenPair> UpdateToken(string rolename, Guid userId)
+        private async Task<TokenPair> UpdateToken(string rolename, Guid userId, Guid sessionId)
         {
             var tokenInfo = new TokenInfo
             {
                 Role = rolename,
-                UserId = userId
+                UserId = userId,
+                SessionId = sessionId
             };
 
             var tokenPair = _jwtService.GenerateDefaultTokenPair(tokenInfo);
             tokenPair.RefreshToken = await _userRepository.UpdateTokenAsync(tokenPair.RefreshToken, tokenInfo.UserId);
             return tokenPair;
+        }
+
+        private bool IsValidDeviceId(string deviceId, DeviceTypeId deviceTypeId)
+        {
+            switch (deviceTypeId)
+            {
+                case DeviceTypeId.AndroidId:
+                    var regex = new Regex("^[0-9a-fA-F]{16}$");
+                    return regex.IsMatch(deviceId);
+
+                case DeviceTypeId.UUID:
+                    return Guid.TryParse(deviceId, out var uuid);
+            }
+
+            return false;
         }
 
         private bool IsValidAuthenticationIdentifier(string identifier, AuthenticationMethod method)

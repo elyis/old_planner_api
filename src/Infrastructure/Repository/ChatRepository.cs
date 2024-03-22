@@ -17,17 +17,18 @@ namespace old_planner_api.src.Infrastructure.Repository
             _context = context;
         }
 
-        public async Task<Chat?> AddPersonalChatAsync(List<UserModel> participants, CreateChatBody chatBody)
+        public async Task<Chat?> AddPersonalChatAsync(List<UserModel> participants, CreateChatBody chatBody, DateTime date)
         {
             if (participants.Count != 2 || (await GetPersonalChatAsync(participants[0].Id, participants[1].Id) != null))
                 return null;
 
             var memberships = participants
-            .Select(user => new ChatMembership
-            {
-                User = user,
-            })
-            .ToList();
+                .Select(user => new ChatMembership
+                {
+                    User = user,
+                    DateLastViewing = date
+                })
+                .ToList();
 
             var chat = new Chat
             {
@@ -40,6 +41,19 @@ namespace old_planner_api.src.Infrastructure.Repository
             await _context.SaveChangesAsync();
 
             return chat;
+        }
+
+        public async Task CreateUserChatSessionAsync(IEnumerable<UserSession> sessions, ChatMembership chatMembership, DateTime date)
+        {
+            var userChatSessions = sessions.Select(e => new UserChatSession
+            {
+                Session = e,
+                ChatMembership = chatMembership,
+                DateLastViewing = date
+            }).ToList();
+
+            await _context.UserChatSessions.AddRangeAsync(userChatSessions);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<Chat?> UpdateChatImage(Guid chatId, string filename)
@@ -192,7 +206,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .ToListAsync();
         }
 
-        public async Task<List<ChatBody>> GetUserChats(Guid userId)
+        public async Task<List<ChatBody>> GetUserChats(Guid userId, Guid userSessionId)
         {
             var result = new List<ChatBody>();
 
@@ -214,15 +228,18 @@ namespace old_planner_api.src.Infrastructure.Repository
 
             foreach (var chatMembership in chatMemberships)
             {
-                var userMembership = userChatMemberships.First(e => e.ChatId == chatMembership.Key);
+                var chatId = chatMembership.Key;
+                var userMembership = userChatMemberships.First(e => e.ChatId == chatId);
+                var userSession = await GetUserChatSessionAsync(userSessionId, userMembership.Id);
+
                 var chat = userMembership.Chat;
-                var dateLastViewing = userMembership.DateLastViewing;
+                var dateLastViewing = userSession.DateLastViewing;
 
                 var countOfUnreadMessages = await _context.ChatMessages
-                    .CountAsync(e => e.SentAt > dateLastViewing);
+                    .CountAsync(e => e.SentAt > dateLastViewing && e.ChatId == chatId);
 
                 var lastMessage = await _context.ChatMessages
-                        .Where(e => e.SentAt > dateLastViewing)
+                        .Where(e => e.SentAt > dateLastViewing && e.ChatId == chatId)
                         .OrderByDescending(e => e.SentAt)
                         .FirstOrDefaultAsync();
 
@@ -232,6 +249,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                     Name = chat.Name,
                     ImageUrl = chat.Image == null ? null : $"{Constants.webPathToPrivateChatIcons}{chat.Image}",
                     CountOfUnreadMessages = countOfUnreadMessages,
+                    IsSyncedReadStatus = userSession.DateLastViewing == userMembership.DateLastViewing,
                     Participants = chatMembership.Select(e => e.User.ToChatUserInfo()).ToList(),
                     LastMessage = lastMessage?.ToMessageBody()
                 };
@@ -241,7 +259,26 @@ namespace old_planner_api.src.Infrastructure.Repository
             return result;
         }
 
+        public async Task<UserChatSession?> GetUserChatSessionAsync(Guid sessionId, Guid chatMembershipId)
+        {
+            return await _context.UserChatSessions
+                .FirstOrDefaultAsync(e => e.SessionId == sessionId && e.ChatMembershipId == chatMembershipId);
+        }
+
         public async Task<int> GetCountChatMemberships(Guid chatId)
             => await _context.ChatMemberships.CountAsync(e => e.ChatId == chatId);
+
+        public async Task<bool> UpdateLastViewingUserChatSession(UserChatSession userChatSession, DateTime lastViewingDate)
+        {
+            if (userChatSession == null)
+                return false;
+
+            if (userChatSession.DateLastViewing > lastViewingDate)
+                return false;
+
+            userChatSession.DateLastViewing = lastViewingDate;
+            await _context.SaveChangesAsync();
+            return true;
+        }
     }
 }

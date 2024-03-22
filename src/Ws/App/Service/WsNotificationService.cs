@@ -73,6 +73,5 @@ namespace old_planner_api.src.Ws.App.Service
         }
 
         private string SerializeObject<T>(T obj) => JsonConvert.SerializeObject(obj);
-
     }
 }

@@ -25,7 +25,7 @@ namespace old_planner_api.src.Web.Controllers
     {
         private readonly IJwtService _jwtService;
         private readonly IFileUploaderService _fileUploaderService;
-        private readonly ITaskChatService _taskChatService;
+        private readonly ITaskChatConnectionService _taskChatService;
         private readonly ITaskChatHandler _taskChatHandler;
         private readonly ITaskChatRepository _chatRepository;
         private readonly IUserRepository _userRepository;
@@ -34,7 +34,7 @@ namespace old_planner_api.src.Web.Controllers
 
         public TaskChatController(
             IJwtService jwtService,
-            ITaskChatService taskChatService,
+            ITaskChatConnectionService taskChatService,
             ITaskChatRepository chatRepository,
             IUserRepository userRepository,
             ITaskChatHandler taskChatHandler,
@@ -73,22 +73,29 @@ namespace old_planner_api.src.Web.Controllers
             var ws = await websocketManager.AcceptWebSocketAsync();
 
 
-            var userConnection = new TaskChatSession
+            var session = new TaskChatSession
             {
                 User = user.ToChatUserInfo(),
                 Ws = ws,
+                SessionId = tokenInfo.SessionId
             };
 
             var currentChatMembership = await _chatRepository.AddOrGetChatMembershipAsync(chat, user);
             if (currentChatMembership == null)
                 return;
 
+
+
             var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
             var userIds = chatMemberships.Select(e => e.ParticipantId).ToList();
 
-            var connections = _taskChatService.AddConnection(chatId, userConnection, userIds);
-            await _taskChatHandler.Invoke(user, currentChatMembership, chat, connections, userConnection);
-            _taskChatService.RemoveConnection(chatId, userConnection);
+            var userChatSession = await _chatRepository.GetUserChatSessionAsync(currentChatMembership.Id, user.Id);
+            if (userChatSession == null)
+                return;
+
+            var connections = _taskChatService.AddConnection(chatId, session, userIds);
+            await _taskChatHandler.Invoke(user, currentChatMembership, chat, connections, session, userChatSession);
+            _taskChatService.RemoveConnection(chatId, session);
         }
 
         [HttpPost("api/taskChat/messages")]
@@ -123,7 +130,7 @@ namespace old_planner_api.src.Web.Controllers
         )
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var result = await _chatRepository.GetUserChatBodies(tokenInfo.UserId);
+            var result = await _chatRepository.GetUserChatBodies(tokenInfo.UserId, tokenInfo.SessionId);
             return Ok(result);
         }
 
@@ -151,9 +158,12 @@ namespace old_planner_api.src.Web.Controllers
             var notAddedUsers = new List<string>();
             foreach (var user in users)
             {
+                var userSessions = await _userRepository.GetUserSessionsAsync(user.Id);
                 var result = await _chatRepository.AddChatMembershipAsync(chat, user);
                 if (result == null)
                     notAddedUsers.Add(user.Identifier);
+                else
+                    await _chatRepository.CreateUserChatSessionAsync(userSessions, result, result.DateLastViewing);
             }
 
             return Ok(notAddedUsers);
@@ -192,6 +202,11 @@ namespace old_planner_api.src.Web.Controllers
             var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
             if (chatMessage == null)
                 return BadRequest();
+
+            var curMembership = await _chatRepository.GetTaskChatMembershipAsync(chatId, tokenInfo.UserId);
+            var userSession = await _chatRepository.GetUserChatSessionAsync(tokenInfo.SessionId, curMembership.Id);
+            await _chatRepository.UpdateLastViewingChatMembership(curMembership, chatMessage.SentAt);
+            await _chatRepository.UpdateLastViewingUserChatSession(userSession, chatMessage.SentAt);
 
             var chatLobby = _taskChatService.GetConnections(chatId);
             if (chatLobby != null)

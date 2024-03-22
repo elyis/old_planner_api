@@ -36,6 +36,36 @@ namespace old_planner_api.src.Infrastructure.Repository
             return result?.Entity;
         }
 
+        public async Task<UserSession?> GetSessionAsync(Guid userId, string deviceId)
+        {
+            return await _context.UserSessions
+                .FirstOrDefaultAsync(e => e.UserId == userId && e.DeviceId == deviceId);
+        }
+
+        public async Task<List<UserSession>> GetUserSessionsAsync(Guid userId)
+        {
+            return await _context.UserSessions
+                .Where(e => e.UserId == userId)
+                .ToListAsync();
+        }
+
+        public async Task<UserSession> AddOrGetUserSessionAsync(string deviceId, UserModel user)
+        {
+            var userSession = await GetSessionAsync(user.Id, deviceId);
+            if (userSession != null)
+                return userSession;
+
+            userSession = new UserSession
+            {
+                DeviceId = deviceId,
+                User = user,
+            };
+
+            var result = await _context.UserSessions.AddAsync(userSession);
+            await _context.SaveChangesAsync();
+            return result?.Entity;
+        }
+
 
         public async Task<List<UserModel>> GetUsersAsync(List<string> identifiers)
         {
@@ -118,6 +148,11 @@ namespace old_planner_api.src.Infrastructure.Repository
             return await _context.Users
                .Where(e => e.UserTag != null && EF.Functions.Like(e.UserTag, $"%{patternUserTag}%"))
                .ToListAsync();
+        }
+
+        public async Task<UserSession?> GetSessionAsync(Guid sessionId)
+        {
+            return await _context.UserSessions.FirstOrDefaultAsync(e => e.Id == sessionId);
         }
     }
 }

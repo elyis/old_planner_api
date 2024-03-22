@@ -1,7 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.WebSockets;
-using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MimeDetective;
@@ -25,7 +24,7 @@ namespace old_planner_api.src.Web.Controllers
     {
         private readonly IJwtService _jwtService;
         private readonly IFileUploaderService _fileUploaderService;
-        private readonly IChatService _chatService;
+        private readonly IChatConnectionService _chatConnectionService;
         private readonly IChatHandler _chatHandler;
         private readonly IChatRepository _chatRepository;
         private readonly IUserRepository _userRepository;
@@ -34,19 +33,19 @@ namespace old_planner_api.src.Web.Controllers
 
         public ChatController(
             IJwtService jwtService,
-            IChatService taskChatService,
+            IChatConnectionService chatConnectionService,
             IChatRepository chatRepository,
             IUserRepository userRepository,
-            IChatHandler taskChatHandler,
+            IChatHandler chatHandler,
             IFileUploaderService fileUploaderService,
             ContentInspector contentInspector
         )
         {
             _jwtService = jwtService;
-            _chatService = taskChatService;
+            _chatConnectionService = chatConnectionService;
             _chatRepository = chatRepository;
             _userRepository = userRepository;
-            _chatHandler = taskChatHandler;
+            _chatHandler = chatHandler;
             _fileUploaderService = fileUploaderService;
             _contentInspector = contentInspector;
         }
@@ -75,19 +74,24 @@ namespace old_planner_api.src.Web.Controllers
             var session = new ChatSession
             {
                 User = user.ToChatUserInfo(),
-                Ws = ws
+                Ws = ws,
+                SessionId = tokenInfo.SessionId
             };
 
             var chatMembership = await _chatRepository.CreateOrGetChatMembershipAsync(chat, user);
             if (chatMembership == null)
                 return;
 
+            var userChatSession = await _chatRepository.GetUserChatSessionAsync(tokenInfo.SessionId, chatMembership.Id);
+            if (userChatSession == null)
+                return;
+
             var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
             var userIds = chatMemberships.Select(e => e.UserId).ToList();
 
-            var connections = _chatService.AddConnection(chatId, session, userIds);
-            await _chatHandler.Invoke(user, chatMembership, chat, connections, session);
-            _chatService.RemoveConnection(chatId, session);
+            var connections = _chatConnectionService.AddConnection(chatId, session, userIds);
+            await _chatHandler.Invoke(user, chatMembership, chat, connections, session, userChatSession);
+            _chatConnectionService.RemoveConnection(chatId, session);
         }
 
 
@@ -100,13 +104,13 @@ namespace old_planner_api.src.Web.Controllers
         )
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var chats = await _chatRepository.GetUserChats(tokenInfo.UserId);
+            var chats = await _chatRepository.GetUserChats(tokenInfo.UserId, tokenInfo.SessionId);
             return Ok(chats);
         }
 
         [HttpPost("api/chat"), Authorize]
         [SwaggerOperation("Создать личный чат")]
-        [SwaggerResponse(200, Type = typeof(Guid))]
+        [SwaggerResponse(200)]
         [SwaggerResponse(404)]
         [SwaggerResponse(409)]
 
@@ -128,8 +132,17 @@ namespace old_planner_api.src.Web.Controllers
                 addedUser
             };
 
-            var result = await _chatRepository.AddPersonalChatAsync(participants, chatBody);
-            return result != null ? Ok(result.Id) : Conflict();
+            var currentDate = DateTime.UtcNow;
+            var result = await _chatRepository.AddPersonalChatAsync(participants, chatBody, currentDate);
+            if (result == null)
+                return Conflict();
+
+            foreach (var chatMembership in result.ChatMemberships)
+            {
+                var userSessions = await _userRepository.GetUserSessionsAsync(chatMembership.UserId);
+                await _chatRepository.CreateUserChatSessionAsync(userSessions, chatMembership, currentDate);
+            }
+            return Ok();
         }
 
         [HttpPost("api/upload/chat"), Authorize]
@@ -169,7 +182,13 @@ namespace old_planner_api.src.Web.Controllers
             var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
             var userIds = chatMemberships.Select(e => e.UserId).ToList();
 
-            var lobby = _chatService.GetConnections(chatId);
+            var curMembership = chatMemberships.First(e => e.UserId == tokenInfo.UserId);
+            var userSession = await _chatRepository.GetUserChatSessionAsync(tokenInfo.SessionId, curMembership.Id);
+            await _chatRepository.UpdateLastViewingChatMembership(curMembership, chatMessage.SentAt);
+            await _chatRepository.UpdateLastViewingUserChatSession(userSession, chatMessage.SentAt);
+
+
+            var lobby = _chatConnectionService.GetConnections(chatId);
             if (lobby != null)
                 await _chatHandler.SendMessageToAll(lobby.ActiveConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
             return Ok();

@@ -4,12 +4,12 @@ using old_planner_api.src.Ws.Entities;
 
 namespace old_planner_api.src.Ws.App.Service
 {
-    public class ChatService : IChatService
+    public class ChatConnectionService : IChatConnectionService
     {
-        private readonly ILogger<ChatService> _logger;
+        private readonly ILogger<ChatConnectionService> _logger;
         private ConcurrentDictionary<Guid, ChatLobby> _chats { get; set; } = new();
 
-        public ChatService(ILogger<ChatService> logger)
+        public ChatConnectionService(ILogger<ChatConnectionService> logger)
         {
             _logger = logger;
         }

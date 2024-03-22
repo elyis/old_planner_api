@@ -7,7 +7,7 @@ namespace old_planner_api.src.Ws.App.IHandler
 {
     public interface ITaskChatHandler
     {
-        Task Invoke(UserModel user, TaskChatMembership userChatHistory, TaskChat chat, TaskChatLobby lobby, TaskChatSession currentConnection);
+        Task Invoke(UserModel user, TaskChatMembership userChatHistory, TaskChat chat, TaskChatLobby lobby, TaskChatSession currentConnection, UserTaskChatSession userChatSession);
         Task SendMessageToAll(IEnumerable<TaskChatSession> connections, MessageBody message, WebSocketMessageType messageType, IEnumerable<Guid> userIds, TaskChat chat);
     }
 }

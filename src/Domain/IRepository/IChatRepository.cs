@@ -11,15 +11,18 @@ namespace old_planner_api.src.Domain.IRepository
         Task<List<ChatMembership>> GetChatMembershipsAsync(Guid chatId);
         Task<ChatMembership?> GetMembershipAsync(Guid chatId, Guid userId);
         Task<ChatMessage?> AddMessageAsync(CreateMessageBody messageBody, Chat chat, UserModel sender);
+        Task CreateUserChatSessionAsync(IEnumerable<UserSession> sessions, ChatMembership chatMembership, DateTime date);
         Task<ChatMessage?> GetMessageAsync(Guid id);
         Task<Chat?> UpdateChatImage(Guid chatId, string filename);
+        Task<UserChatSession?> GetUserChatSessionAsync(Guid sessionId, Guid chatMembershipId);
+        Task<bool> UpdateLastViewingUserChatSession(UserChatSession userChatSession, DateTime lastViewingDate);
         Task<List<ChatMessage>> GetMessagesAsync(Guid chatId, int count, int countSkipped, bool isDescending = true);
         Task<bool> UpdateLastViewingChatMembership(ChatMembership chatMembership, DateTime lastViewingDate);
         Task<ChatMembership?> CreateOrGetChatMembershipAsync(Chat chat, UserModel user);
         Task<ChatMembership?> AddUserToChatAsync(Chat chat, UserModel user);
-        Task<List<ChatBody>> GetUserChats(Guid userId);
+        Task<List<ChatBody>> GetUserChats(Guid userId, Guid userSessionId);
         Task<ChatMembership?> GetPersonalChatAsync(Guid firstUserId, Guid secondUserId);
         Task<int> GetCountChatMemberships(Guid chatId);
-        Task<Chat?> AddPersonalChatAsync(List<UserModel> participants, CreateChatBody chatBody);
+        Task<Chat?> AddPersonalChatAsync(List<UserModel> participants, CreateChatBody chatBody, DateTime date);
     }
 }

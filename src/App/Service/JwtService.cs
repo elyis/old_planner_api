@@ -40,6 +40,7 @@ namespace webApiTemplate.src.App.Service
             var claims = new Dictionary<string, string>{
                 { "UserId", tokenInfo.UserId.ToString() },
                 { ClaimTypes.Role, tokenInfo.Role},
+                { "SessionId", tokenInfo.SessionId.ToString()}
             };
             var timeSpan = new TimeSpan(2, 0, 0, 0);
             return GenerateTokenPair(claims, timeSpan);
@@ -65,6 +66,7 @@ namespace webApiTemplate.src.App.Service
             {
                 Role = claims.FirstOrDefault(claim => claim.Type == ClaimTypes.Role)?.Value,
                 UserId = Guid.Parse(claims.FirstOrDefault(claim => claim.Type == "UserId")?.Value),
+                SessionId = Guid.Parse(claims.FirstOrDefault(claim => claim.Type == "SessionId")?.Value)
             };
         }
     }

@@ -13,7 +13,6 @@ namespace old_planner_api.src.Web.Controllers
     {
         private readonly IAuthService _authService;
 
-
         public AuthController(IAuthService authService)
         {
             _authService = authService;
@@ -49,12 +48,17 @@ namespace old_planner_api.src.Web.Controllers
 
         [SwaggerOperation("Восстановление токена")]
         [SwaggerResponse(200, "Успешно создан", Type = typeof(TokenPair))]
+        [SwaggerResponse(400, "Идентификатор устройства не валиден")]
         [SwaggerResponse(404, "Токен не используется")]
 
         [HttpPost("token")]
-        public async Task<IActionResult> RestoreTokenAsync(TokenBody body)
+        public async Task<IActionResult> RestoreTokenAsync(
+            TokenBody body,
+            [FromHeader(Name = "DeviceId")] string deviceId,
+            [FromHeader(Name = "DeviceTypeId")] DeviceTypeId deviceTypeId
+        )
         {
-            var result = await _authService.RestoreToken(body.Value);
+            var result = await _authService.RestoreToken(body.Value, deviceId, deviceTypeId);
             return result;
         }
     }

@@ -37,10 +37,11 @@ namespace old_planner_api.src.Ws.App.Handler
             TaskChatMembership chatMembership,
             TaskChat chat,
             TaskChatLobby lobby,
-            TaskChatSession currentConnection
+            TaskChatSession currentConnection,
+            UserTaskChatSession userChatSession
         )
         {
-            await Loop(lobby, currentConnection, user, chat, chatMembership);
+            await Loop(lobby, currentConnection, user, chat, chatMembership, userChatSession);
         }
 
         private async Task Loop(
@@ -48,7 +49,8 @@ namespace old_planner_api.src.Ws.App.Handler
             TaskChatSession currentConnection,
             UserModel user,
             TaskChat chat,
-            TaskChatMembership chatMembership
+            TaskChatMembership chatMembership,
+            UserTaskChatSession userChatSession
         )
         {
             var ws = currentConnection.Ws;
@@ -117,7 +119,11 @@ namespace old_planner_api.src.Ws.App.Handler
                     await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, errorMessage, CancellationToken.None);
 
                 if (dateLastViewingMessage != null)
-                    await _chatRepository.UpdateLastViewingChatMembership(chatMembership, (DateTime)dateLastViewingMessage);
+                {
+                    var dateLastViewing = (DateTime)dateLastViewingMessage;
+                    await _chatRepository.UpdateLastViewingChatMembership(chatMembership, dateLastViewing);
+                    await _chatRepository.UpdateLastViewingUserChatSession(userChatSession, dateLastViewing);
+                }
             }
         }
 

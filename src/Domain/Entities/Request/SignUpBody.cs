@@ -16,5 +16,10 @@ namespace old_planner_api.src.Domain.Entities.Request
 
         [EnumDataType(typeof(AuthenticationMethod))]
         public AuthenticationMethod Method { get; set; }
+
+
+        [EnumDataType(typeof(DeviceTypeId))]
+        public DeviceTypeId DeviceTypeId { get; set; }
+        public string DeviceId { get; set; }
     }
 }

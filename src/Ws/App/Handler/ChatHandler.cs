@@ -37,10 +37,11 @@ namespace old_planner_api.src.Ws.App.Handler
             ChatMembership chatMembership,
             Chat chat,
             ChatLobby lobby,
-            ChatSession currentSession
+            ChatSession currentSession,
+            UserChatSession userChatSession
         )
         {
-            await Loop(lobby, currentSession, user, chat, chatMembership);
+            await Loop(lobby, currentSession, user, chat, chatMembership, userChatSession);
         }
 
         private async Task Loop(
@@ -48,7 +49,8 @@ namespace old_planner_api.src.Ws.App.Handler
             ChatSession currentSession,
             UserModel user,
             Chat chat,
-            ChatMembership chatMembership
+            ChatMembership chatMembership,
+            UserChatSession userChatSession
         )
         {
             var ws = currentSession.Ws;
@@ -89,15 +91,17 @@ namespace old_planner_api.src.Ws.App.Handler
                             {
                                 var message = await _chatRepository.GetMessageAsync(messageId);
                                 if (message != null)
+                                {
+                                    dateLastViewingMessage = message.SentAt;
                                     await SendMessageToAll(connections, message.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
+                                }
                             }
                             else
                             {
                                 var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
+                                dateLastViewingMessage = chatMessage.SentAt;
                                 await SendMessageToAll(otherConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
                             }
-
-                            dateLastViewingMessage = DateTime.UtcNow;
                         }
                     }
                 }
@@ -118,7 +122,11 @@ namespace old_planner_api.src.Ws.App.Handler
                     await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, errorMessage, CancellationToken.None);
 
                 if (dateLastViewingMessage != null)
-                    await _chatRepository.UpdateLastViewingChatMembership(chatMembership, (DateTime)dateLastViewingMessage);
+                {
+                    var dateLastViewing = (DateTime)dateLastViewingMessage;
+                    await _chatRepository.UpdateLastViewingChatMembership(chatMembership, dateLastViewing);
+                    await _chatRepository.UpdateLastViewingUserChatSession(userChatSession, dateLastViewing);
+                }
             }
         }
 

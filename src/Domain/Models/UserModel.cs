@@ -31,6 +31,7 @@ namespace old_planner_api.src.Domain.Models
         public List<ChatMessage> SentMessages { get; set; } = new();
 
         public List<ChatMembership> ChatMemberships { get; set; } = new();
+        public List<UserSession> Sessions { get; set; } = new();
 
         public ProfileBody ToProfileBody()
         {
@@ -50,6 +51,7 @@ namespace old_planner_api.src.Domain.Models
             return new ChatUserInfo
             {
                 Id = Id,
+                Nickname = Nickname,
                 Identifier = Identifier,
                 ImageUrl = Image == null ? null : $"{Constants.webPathToProfileIcons}{Image}",
                 UserTag = UserTag,

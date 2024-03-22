@@ -113,8 +113,8 @@ namespace old_planner_api
 
             services.AddSingleton<IJwtService, JwtService>();
             services.AddSingleton<IFileUploaderService, LocalFileUploaderService>();
-            services.AddSingleton<ITaskChatService, TaskChatService>();
-            services.AddSingleton<IChatService, ChatService>();
+            services.AddSingleton<ITaskChatConnectionService, TaskChatService>();
+            services.AddSingleton<IChatConnectionService, ChatConnectionService>();
             services.AddSingleton<IMainMonitoringService, MainMonitoringService>();
             services.AddSingleton<INotificationService, WsNotificationService>();
             services.AddSingleton(fileInspector);

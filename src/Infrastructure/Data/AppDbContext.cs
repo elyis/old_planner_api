@@ -26,11 +26,14 @@ namespace old_planner_api.src.Infrastructure.Data
         public DbSet<TaskChatMembership> TaskChatMemberships { get; set; }
         public DbSet<Chat> Chats { get; set; }
         public DbSet<ChatMembership> ChatMemberships { get; set; }
+        public DbSet<UserSession> UserSessions { get; set; }
+        public DbSet<UserChatSession> UserChatSessions { get; set; }
+        public DbSet<UserTaskChatSession> UserTaskChatSessions { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            var connectionString = _config.GetConnectionString("Default");
+            var connectionString = _config.GetConnectionString("DefaultConnection");
             optionsBuilder.UseNpgsql(connectionString);
             // optionsBuilder.EnableSensitiveDataLogging();
             base.OnConfiguring(optionsBuilder);
@@ -42,18 +45,6 @@ namespace old_planner_api.src.Infrastructure.Data
             {
                 e.BoardId,
                 e.UserId
-            });
-
-            modelBuilder.Entity<TaskChatMembership>().HasKey(e => new
-            {
-                e.ParticipantId,
-                e.ChatId
-            });
-
-            modelBuilder.Entity<ChatMembership>().HasKey(e => new
-            {
-                e.UserId,
-                e.ChatId
             });
 
             base.OnModelCreating(modelBuilder);

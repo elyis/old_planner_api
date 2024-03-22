@@ -39,7 +39,8 @@ namespace old_planner_api.src.Web.Controllers.Api
 
             var mainMonitoring = new UserNotificationSession
             {
-                Socket = ws
+                Socket = ws,
+                SessionId = tokenInfo.SessionId
             };
 
             _notificationService.AddConnection(tokenInfo.UserId, mainMonitoring);

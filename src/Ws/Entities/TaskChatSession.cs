@@ -7,5 +7,6 @@ namespace old_planner_api.src.Ws.Entities
     {
         public ChatUserInfo User { get; set; }
         public WebSocket Ws { get; set; }
+        public Guid SessionId { get; set; }
     }
 }

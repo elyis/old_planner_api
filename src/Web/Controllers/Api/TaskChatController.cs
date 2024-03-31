@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
-using System.Net.Mail;
 using System.Net.WebSockets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -93,8 +92,11 @@ namespace old_planner_api.src.Web.Controllers
             if (userChatSession == null)
                 return;
 
-            var connections = _taskChatService.AddConnection(chatId, session, userIds);
-            await _taskChatHandler.Invoke(user, currentChatMembership, chat, connections, session, userChatSession);
+            var lobby = _taskChatService.AddSessionToLobby(chatId, session);
+            if (lobby == null)
+                return;
+
+            await _taskChatHandler.Invoke(user, currentChatMembership, chat, lobby, session, userChatSession);
             _taskChatService.RemoveConnection(chatId, session);
         }
 
@@ -205,12 +207,15 @@ namespace old_planner_api.src.Web.Controllers
 
             var curMembership = await _chatRepository.GetTaskChatMembershipAsync(chatId, tokenInfo.UserId);
             var userSession = await _chatRepository.GetUserChatSessionAsync(tokenInfo.SessionId, curMembership.Id);
+
+            var memberships = await _chatRepository.GetChatMembershipsAsync(chatId);
+            var userIds = memberships.Select(e => e.ParticipantId).ToList();
             await _chatRepository.UpdateLastViewingChatMembership(curMembership, chatMessage.SentAt);
             await _chatRepository.UpdateLastViewingUserChatSession(userSession, chatMessage.SentAt);
 
             var chatLobby = _taskChatService.GetConnections(chatId);
             if (chatLobby != null)
-                await _taskChatHandler.SendMessageToAll(chatLobby.ActiveConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, chatLobby.ChatUsers, chat);
+                await _taskChatHandler.SendMessage(chatLobby.ActiveSessions.Select(e => e.Value), chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
             return Ok();
         }
 

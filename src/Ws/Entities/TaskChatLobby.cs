@@ -1,8 +1,10 @@
+using System.Collections.Concurrent;
+
 namespace old_planner_api.src.Ws.Entities
 {
     public class TaskChatLobby
     {
-        public List<TaskChatSession> ActiveConnections { get; set; } = new();
-        public List<Guid> ChatUsers { get; set; } = new();
+        public ConcurrentDictionary<Guid, TaskChatSession> ActiveSessions { get; set; } = new();
+        public List<Guid> AllChatUsers { get; set; } = new();
     }
 }

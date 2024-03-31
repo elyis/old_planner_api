@@ -49,11 +49,11 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .ToListAsync();
         }
 
-        public async Task<UserSession> AddOrGetUserSessionAsync(string deviceId, UserModel user)
+        public async Task<UserSession?> AddUserSessionAsync(string deviceId, UserModel user)
         {
             var userSession = await GetSessionAsync(user.Id, deviceId);
             if (userSession != null)
-                return userSession;
+                return null;
 
             userSession = new UserSession
             {

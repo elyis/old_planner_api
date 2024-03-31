@@ -4,7 +4,9 @@ namespace old_planner_api.src.Ws.App.IService
 {
     public interface IChatConnectionService
     {
-        ChatLobby AddConnection(Guid chatId, ChatSession session, List<Guid> userIds);
+        ChatLobby? AddLobby(Guid chatId, List<Guid> allUserIds);
+        bool LobbyIsExist(Guid chatId);
+        ChatLobby? AddSessionToLobby(Guid chatId, ChatSession session);
         void RemoveConnection(Guid chatId, ChatSession session);
         ChatLobby? GetConnections(Guid chatId);
     }

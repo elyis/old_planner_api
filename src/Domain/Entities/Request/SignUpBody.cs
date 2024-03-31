@@ -20,6 +20,8 @@ namespace old_planner_api.src.Domain.Entities.Request
 
         [EnumDataType(typeof(DeviceTypeId))]
         public DeviceTypeId DeviceTypeId { get; set; }
+
+        [Required]
         public string DeviceId { get; set; }
     }
 }

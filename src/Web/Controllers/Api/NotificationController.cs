@@ -37,17 +37,17 @@ namespace old_planner_api.src.Web.Controllers.Api
             var tokenInfo = _jwtService.GetTokenInfo(token);
             var ws = await HttpContext.WebSockets.AcceptWebSocketAsync();
 
-            var mainMonitoring = new UserNotificationSession
+            var notificationSession = new UserNotificationSession
             {
                 Socket = ws,
-                SessionId = tokenInfo.SessionId
+                SessionId = tokenInfo.SessionId,
             };
 
-            _notificationService.AddConnection(tokenInfo.UserId, mainMonitoring);
+            _notificationService.AddUserSession(tokenInfo.UserId, notificationSession);
 
             await Loop(ws);
 
-            _notificationService.RemoveConnection(tokenInfo.UserId);
+            _notificationService.RemoveSession(tokenInfo.UserId, tokenInfo.SessionId);
         }
 
 

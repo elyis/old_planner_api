@@ -8,7 +8,7 @@ namespace old_planner_api.src.Domain.IRepository
         Task<UserModel?> AddAsync(SignUpBody body, string role);
         Task<UserSession?> GetSessionAsync(Guid userId, string deviceId);
         Task<UserSession?> GetSessionAsync(Guid sessionId);
-        Task<UserSession> AddOrGetUserSessionAsync(string deviceId, UserModel user);
+        Task<UserSession?> AddUserSessionAsync(string deviceId, UserModel user);
         Task<List<UserSession>> GetUserSessionsAsync(Guid userId);
         Task<UserModel?> GetAsync(Guid id);
         Task<UserModel?> GetByUserTagAsync(string userTag);

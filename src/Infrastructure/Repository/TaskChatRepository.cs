@@ -214,5 +214,21 @@ namespace old_planner_api.src.Infrastructure.Repository
             await _context.UserTaskChatSessions.AddRangeAsync(userChatSessions);
             await _context.SaveChangesAsync();
         }
+
+        public async Task CreateUserChatSessionAsync(UserSession session)
+        {
+            var chatMemberships = await _context.TaskChatMemberships.Where(e => e.ParticipantId == session.UserId).ToListAsync();
+
+            var userChatSessions = chatMemberships
+                .Select(e => new UserTaskChatSession
+                {
+                    Session = session,
+                    ChatMembership = e,
+                    DateLastViewing = e.DateLastViewing
+                });
+
+            await _context.UserTaskChatSessions.AddRangeAsync(userChatSessions);
+            await _context.SaveChangesAsync();
+        }
     }
 }

@@ -86,11 +86,18 @@ namespace old_planner_api.src.Web.Controllers
             if (userChatSession == null)
                 return;
 
-            var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
-            var userIds = chatMemberships.Select(e => e.UserId).ToList();
+            if (!_chatConnectionService.LobbyIsExist(chatId))
+            {
+                var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
+                var userIds = chatMemberships.Select(e => e.UserId).ToList();
+                _chatConnectionService.AddLobby(chatId, userIds);
+            }
 
-            var connections = _chatConnectionService.AddConnection(chatId, session, userIds);
-            await _chatHandler.Invoke(user, chatMembership, chat, connections, session, userChatSession);
+            var lobby = _chatConnectionService.AddSessionToLobby(chatId, session);
+            if (lobby == null)
+                return;
+
+            await _chatHandler.Invoke(user, chatMembership, chat, lobby, session, userChatSession);
             _chatConnectionService.RemoveConnection(chatId, session);
         }
 
@@ -142,7 +149,7 @@ namespace old_planner_api.src.Web.Controllers
                 var userSessions = await _userRepository.GetUserSessionsAsync(chatMembership.UserId);
                 await _chatRepository.CreateUserChatSessionAsync(userSessions, chatMembership, currentDate);
             }
-            return Ok();
+            return Ok(result.Id);
         }
 
         [HttpPost("api/upload/chat"), Authorize]
@@ -190,7 +197,7 @@ namespace old_planner_api.src.Web.Controllers
 
             var lobby = _chatConnectionService.GetConnections(chatId);
             if (lobby != null)
-                await _chatHandler.SendMessageToAll(lobby.ActiveConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
+                await _chatHandler.SendMessage(lobby.ActiveSessions.Select(e => e.Value), chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
             return Ok();
         }
 

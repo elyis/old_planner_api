@@ -8,21 +8,28 @@ using webApiTemplate.src.App.Provider;
 using webApiTemplate.src.Domain.Entities.Shared;
 using old_planner_api.src.Domain.Enums;
 using System.Text.RegularExpressions;
+using old_planner_api.src.Domain.Models;
 
 namespace old_planner_api.src.App.Service
 {
     public class AuthService : IAuthService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IChatRepository _chatRepository;
+        private readonly ITaskChatRepository _taskChatRepository;
         private readonly IJwtService _jwtService;
 
         public AuthService
         (
             IUserRepository userRepository,
+            IChatRepository chatRepository,
+            ITaskChatRepository taskChatRepository,
             IJwtService jwtService
         )
         {
             _userRepository = userRepository;
+            _chatRepository = chatRepository;
+            _taskChatRepository = taskChatRepository;
             _jwtService = jwtService;
         }
 
@@ -62,7 +69,7 @@ namespace old_planner_api.src.App.Service
             if (user.PasswordHash != inputPasswordHash)
                 return new BadRequestResult();
 
-            var session = await _userRepository.AddOrGetUserSessionAsync(body.DeviceId, user);
+            var session = await CreateChatMemberships(body.DeviceId, user);
             var tokenPair = await UpdateToken(user.RoleName, user.Id, session.Id);
             return new OkObjectResult(tokenPair);
         }
@@ -81,9 +88,24 @@ namespace old_planner_api.src.App.Service
             if (user == null)
                 return new ConflictResult();
 
-            var session = await _userRepository.AddOrGetUserSessionAsync(body.DeviceId, user);
+            var session = await CreateChatMemberships(body.DeviceId, user);
             var tokenPair = await UpdateToken(rolename, user.Id, session.Id);
             return new OkObjectResult(tokenPair);
+        }
+
+        private async Task<UserSession> CreateChatMemberships(string deviceId, UserModel user)
+        {
+            var session = await _userRepository.AddUserSessionAsync(deviceId, user);
+            if (session == null)
+            {
+                session = await _userRepository.GetSessionAsync(user.Id, deviceId);
+                return session;
+            }
+
+            await _chatRepository.CreateUserChatSessionAsync(session);
+            await _taskChatRepository.CreateUserChatSessionAsync(session);
+
+            return session;
         }
 
         private async Task<TokenPair> UpdateToken(string rolename, Guid userId, Guid sessionId)

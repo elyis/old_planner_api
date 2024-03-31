@@ -20,5 +20,6 @@ namespace old_planner_api.src.Domain.IRepository
         Task<TaskChatMembership?> GetTaskChatMembershipAsync(Guid chatId, Guid userId);
         Task CreateUserChatSessionAsync(IEnumerable<UserSession> sessions, TaskChatMembership chatMembership, DateTime date);
         Task<bool> UpdateLastViewingChatMembership(TaskChatMembership chatMembership, DateTime lastViewingDate);
+        Task CreateUserChatSessionAsync(UserSession session);
     }
 }

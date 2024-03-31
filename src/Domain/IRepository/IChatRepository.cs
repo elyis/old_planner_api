@@ -12,6 +12,7 @@ namespace old_planner_api.src.Domain.IRepository
         Task<ChatMembership?> GetMembershipAsync(Guid chatId, Guid userId);
         Task<ChatMessage?> AddMessageAsync(CreateMessageBody messageBody, Chat chat, UserModel sender);
         Task CreateUserChatSessionAsync(IEnumerable<UserSession> sessions, ChatMembership chatMembership, DateTime date);
+        Task CreateUserChatSessionAsync(UserSession session);
         Task<ChatMessage?> GetMessageAsync(Guid id);
         Task<Chat?> UpdateChatImage(Guid chatId, string filename);
         Task<UserChatSession?> GetUserChatSessionAsync(Guid sessionId, Guid chatMembershipId);

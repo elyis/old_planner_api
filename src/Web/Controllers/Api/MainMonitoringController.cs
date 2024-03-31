@@ -40,14 +40,13 @@ namespace old_planner_api.src.Web.Controllers
             var mainMonitoring = new MainMonitoringSession
             {
                 Socket = ws,
-                SessionId = tokenInfo.SessionId
             };
 
-            _monitoringService.AddConnection(tokenInfo.UserId, mainMonitoring);
+            _monitoringService.AddUserSession(tokenInfo.UserId, mainMonitoring);
 
             await Loop(ws);
 
-            _monitoringService.RemoveConnection(tokenInfo.UserId);
+            _monitoringService.RemoveSession(tokenInfo.UserId, tokenInfo.SessionId);
         }
 
 

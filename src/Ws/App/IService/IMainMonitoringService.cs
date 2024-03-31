@@ -1,13 +1,13 @@
-using old_planner_api.src.Domain.Entities.Response;
 using old_planner_api.src.Ws.Entities;
 
 namespace old_planner_api.src.Ws.App.IService
 {
     public interface IMainMonitoringService
     {
-        MainMonitoringSession AddConnection(Guid userId, MainMonitoringSession session);
-        MainMonitoringSession? GetConnections(Guid userId);
-        bool RemoveConnection(Guid userId);
-        Task<bool> SendMessage(Guid userId, ChatMessageInfo message);
+        MainMonitoringSession AddUserSession(Guid userId, MainMonitoringSession session);
+        IEnumerable<MainMonitoringSession> GetUserSessions(Guid userId);
+        bool RemoveSession(Guid userId, Guid sessionId);
+        Task<IEnumerable<Guid>> SendMessageToSessions(Guid userId, List<Guid> sessionIds, byte[] bytes);
+        Task SendMessageToAllUserSessions(Guid userId, byte[] bytes);
     }
 }

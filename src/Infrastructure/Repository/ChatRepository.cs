@@ -45,12 +45,14 @@ namespace old_planner_api.src.Infrastructure.Repository
 
         public async Task CreateUserChatSessionAsync(IEnumerable<UserSession> sessions, ChatMembership chatMembership, DateTime date)
         {
-            var userChatSessions = sessions.Select(e => new UserChatSession
-            {
-                Session = e,
-                ChatMembership = chatMembership,
-                DateLastViewing = date
-            }).ToList();
+            var userChatSessions = sessions
+                .Select(e => new UserChatSession
+                {
+                    Session = e,
+                    ChatMembership = chatMembership,
+                    DateLastViewing = date
+                })
+            .ToList();
 
             await _context.UserChatSessions.AddRangeAsync(userChatSessions);
             await _context.SaveChangesAsync();
@@ -279,6 +281,22 @@ namespace old_planner_api.src.Infrastructure.Repository
             userChatSession.DateLastViewing = lastViewingDate;
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task CreateUserChatSessionAsync(UserSession session)
+        {
+            var chatMemberships = await _context.ChatMemberships.Where(e => e.UserId == session.UserId).ToListAsync();
+
+            var userChatSessions = chatMemberships
+                .Select(e => new UserChatSession
+                {
+                    Session = session,
+                    ChatMembership = e,
+                    DateLastViewing = e.DateLastViewing
+                });
+
+            await _context.UserChatSessions.AddRangeAsync(userChatSessions);
+            await _context.SaveChangesAsync();
         }
     }
 }

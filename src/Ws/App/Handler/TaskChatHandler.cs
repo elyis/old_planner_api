@@ -15,18 +15,15 @@ namespace old_planner_api.src.Ws.App.Handler
     public class TaskChatHandler : ITaskChatHandler
     {
         private readonly ITaskChatRepository _chatRepository;
-        private readonly IMainMonitoringService _monitoringService;
         private readonly INotificationService _notificationService;
         private readonly ILogger<TaskChatHandler> _logger;
 
         public TaskChatHandler(
-            IMainMonitoringService monitoringService,
             INotificationService notificationService,
             ITaskChatRepository chatRepository,
             ILogger<TaskChatHandler> logger
         )
         {
-            _monitoringService = monitoringService;
             _notificationService = notificationService;
             _chatRepository = chatRepository;
             _logger = logger;
@@ -46,152 +43,50 @@ namespace old_planner_api.src.Ws.App.Handler
 
         private async Task Loop(
             TaskChatLobby lobby,
-            TaskChatSession currentConnection,
+            TaskChatSession currentSession,
             UserModel user,
             TaskChat chat,
             TaskChatMembership chatMembership,
             UserTaskChatSession userChatSession
         )
         {
-            var ws = currentConnection.Ws;
+            var ws = currentSession.Ws;
             string? errorMessage = null;
             DateTime? dateLastViewingMessage = null;
 
-            try
-            {
-                var connections = lobby.ActiveConnections;
-                var chatUserIds = lobby.ChatUsers;
 
-                while (ws.State == WebSocketState.Open)
-                {
-                    var stream = await ReceiveMessage(ws, CancellationToken.None);
-                    if (stream == null)
-                        return;
+            var sessions = lobby.ActiveSessions.Select(e => e.Value);
+            var allUserIds = lobby.AllChatUsers;
+            var activeSessionIds = lobby.ActiveSessions.Select(e => e.Key);
 
-                    stream.Seek(0, SeekOrigin.Begin);
-                    var bytes = stream.GetBuffer();
-                    var otherConnections = connections.Where(e => e.User.Id != currentConnection.User.Id);
-                    var input = Encoding.UTF8.GetString(bytes);
+            dateLastViewingMessage = await ProcessWebSocketState(ws, sessions, allUserIds, chat, user, CancellationToken.None);
 
-                    if (input != null)
-                    {
-                        var sentMessage = JsonConvert.DeserializeObject<SentMessage>(input);
-
-                        if (sentMessage.LastMessageReadId != null)
-                        {
-                            var message = await _chatRepository.GetMessageAsync((Guid)sentMessage.LastMessageReadId);
-                            dateLastViewingMessage = message?.SentAt;
-                        }
-                        else
-                        {
-                            var messageBody = sentMessage.MessageBody;
-                            var userIds = chatUserIds.Where(userId => userId != user.Id);
-                            if (messageBody.Type == MessageType.File && Guid.TryParse(messageBody.Content, out var messageId))
-                            {
-                                var message = await _chatRepository.GetMessageAsync(messageId);
-                                if (message != null)
-                                    await SendMessageToAll(connections, message.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
-                            }
-                            else
-                            {
-                                var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
-                                await SendMessageToAll(otherConnections, chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
-                            }
-
-                            dateLastViewingMessage = DateTime.UtcNow;
-                        }
-                    }
-                }
-            }
-            catch (JsonSerializationException e)
-            {
-                _logger.LogInformation($"{e.Message} by {currentConnection.User.Identifier}");
-                errorMessage = e.Message;
-            }
-            catch (WebSocketException e)
-            {
-                _logger.LogInformation($"{e.Message} by {currentConnection.User.Identifier}");
-                errorMessage = e.Message;
-            }
-            finally
-            {
-                if (ws.State == WebSocketState.Open)
-                    await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, errorMessage, CancellationToken.None);
-
-                if (dateLastViewingMessage != null)
-                {
-                    var dateLastViewing = (DateTime)dateLastViewingMessage;
-                    await _chatRepository.UpdateLastViewingChatMembership(chatMembership, dateLastViewing);
-                    await _chatRepository.UpdateLastViewingUserChatSession(userChatSession, dateLastViewing);
-                }
-            }
+            await CloseWebSocket(ws, errorMessage);
+            await UpdateLastViewingDate(chatMembership, userChatSession, dateLastViewingMessage);
         }
 
-
-        public async Task SendMessageToAll(
-            IEnumerable<TaskChatSession> connections,
+        public async Task SendMessage(
+            IEnumerable<TaskChatSession> sessions,
             MessageBody message,
             WebSocketMessageType messageType,
             IEnumerable<Guid> userIds,
             TaskChat chat
         )
         {
-            var temp = connections.Select(e => e.User.Id);
-            var notConnectedUsers = userIds.Except(temp);
-            var bytes = SerializeObject(message);
-
-            var sendMessageTask = SendMessageToMainMonitoringService(message, notConnectedUsers, chat.Id);
-
-            foreach (var connection in connections)
-                await SendMessage(connection.Ws, bytes, messageType);
-
-            var usersAreOffline = await sendMessageTask;
-            await SendNotifications(message, usersAreOffline, chat.Id);
-        }
-
-        private async Task<IEnumerable<Guid>> SendMessageToMainMonitoringService(MessageBody message, IEnumerable<Guid> userIds, Guid chatId)
-        {
-            var notSendedUsers = new List<Guid>();
-            var chatMessageInfo = new ChatMessageInfo
+            var chatMessageBody = new ChatMessageInfo
             {
-                ChatId = chatId,
+                ChatId = chat.Id,
                 ChatType = ChatType.Task,
                 Message = message
             };
 
-            foreach (var userId in userIds)
-            {
-                var isSended = await _monitoringService.SendMessage(userId, chatMessageInfo);
-                if (!isSended)
-                    notSendedUsers.Add(userId);
-            }
+            var connectedSessionIds = sessions.Select(e => e.SessionId);
+            var connectedUserIds = sessions.GroupBy(e => e.User.Id).Select(e => e.Key);
+            var notConnectedUserIds = userIds.Except(connectedUserIds);
 
-            return notSendedUsers;
-        }
-
-        private async Task SendNotifications(MessageBody message, IEnumerable<Guid> userIds, Guid chatId)
-        {
-            var chatMessageInfo = new ChatMessageInfo
-            {
-                ChatId = chatId,
-                ChatType = ChatType.Task,
-                Message = message
-            };
-
-            foreach (var userId in userIds)
-                await _notificationService.SendMessage(userId, chatMessageInfo);
-        }
-
-        private async Task SendMessage(WebSocket webSocket, byte[] bytes, WebSocketMessageType messageType)
-        {
-            try
-            {
-                await webSocket.SendAsync(bytes, messageType, true, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"{ex.Message}");
-            }
+            var bytes = SerializeObject(chatMessageBody);
+            var userSessionsDeliveryMessage = await SendMessageToConnectedUsers(sessions, bytes, messageType);
+            await DeliverMessageToDisconnectedUsers(notConnectedUserIds, userSessionsDeliveryMessage, bytes);
         }
 
         private async Task<MemoryStream?> ReceiveMessage(WebSocket webSocket, CancellationToken token)
@@ -213,6 +108,171 @@ namespace old_planner_api.src.Ws.App.Handler
             } while (!receiveResult.EndOfMessage && webSocket.State == WebSocketState.Open);
 
             return stream;
+        }
+
+        private async Task<bool> SendMessageToSession(WebSocket webSocket, byte[] bytes, WebSocketMessageType messageType)
+        {
+            try
+            {
+                await webSocket.SendAsync(bytes, messageType, true, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"{ex.Message}");
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task<UserSessions?> NotifySessions(byte[] bytes, UserSessions userSessions)
+        {
+            var sessionsNotReceiveMessage = await _notificationService.SendMessageToSessions(userSessions.UserId, userSessions.SessionIds, bytes);
+            return sessionsNotReceiveMessage.Any() ? new UserSessions
+            {
+                UserId = userSessions.UserId,
+                SessionIds = sessionsNotReceiveMessage.ToList()
+            } : null;
+        }
+
+        private async Task<IEnumerable<UserSessions>> SendMessageToConnectedUsers(IEnumerable<TaskChatSession> sessions, byte[] bytes, WebSocketMessageType messageType)
+        {
+            var userSessionsDeliveryMessage = new List<UserSessions>();
+
+            foreach (var groupedSessions in sessions.GroupBy(e => e.User.Id))
+            {
+                var sessionsReceivedMessage = new List<Guid>();
+                foreach (var session in groupedSessions)
+                {
+                    if (await SendMessageToSession(session.Ws, bytes, messageType))
+                        sessionsReceivedMessage.Add(session.SessionId);
+                }
+
+                if (sessionsReceivedMessage.Any())
+                    userSessionsDeliveryMessage.Add(new UserSessions { UserId = groupedSessions.Key, SessionIds = sessionsReceivedMessage });
+            }
+
+            return userSessionsDeliveryMessage;
+        }
+
+        private async Task<IEnumerable<UserSessions>> DeliverMessageToDisconnectedUsers(IEnumerable<Guid> userIds, IEnumerable<UserSessions> userSessions, byte[] bytes)
+        {
+            var userSessionsDeliveryMessage = new List<UserSessions>();
+
+            foreach (var userId in userIds)
+                await _notificationService.SendMessageToAllUserSessions(userId, bytes);
+
+            foreach (var userSession in userSessions)
+            {
+                var userSessionDeliveryMessage = await NotifySessions(bytes, userSession);
+                if (userSessionDeliveryMessage != null)
+                    userSessionsDeliveryMessage.Add(userSessionDeliveryMessage);
+            }
+
+            return userSessionsDeliveryMessage;
+        }
+
+        private async Task<DateTime?> ProcessWebSocketState(
+            WebSocket ws,
+            IEnumerable<TaskChatSession> sessions,
+            IEnumerable<Guid> allUserIds,
+            TaskChat chat,
+            UserModel user,
+            CancellationToken cancellationToken
+        )
+        {
+            DateTime? dateLastViewingMessage = null;
+
+
+            try
+            {
+                while (ws.State == WebSocketState.Open)
+                {
+                    var stream = await ReceiveMessage(ws, cancellationToken);
+                    if (stream == null)
+                        return dateLastViewingMessage;
+
+                    dateLastViewingMessage = await ProcessReceivedMessage(stream, sessions, allUserIds, chat, user);
+                }
+            }
+            catch (JsonSerializationException e)
+            {
+                _logger.LogInformation($"{e.Message} by {user.Identifier}");
+            }
+            catch (WebSocketException e)
+            {
+                _logger.LogInformation($"{e.Message} by {user.Identifier}");
+            }
+
+            return dateLastViewingMessage;
+        }
+
+        private async Task<DateTime?> ProcessSentMessage(
+            SentMessage sentMessage,
+            IEnumerable<TaskChatSession> sessions,
+            IEnumerable<Guid> allUserIds,
+            TaskChat chat,
+            UserModel user
+        )
+        {
+            if (sentMessage.LastMessageReadId == null)
+            {
+                var messageBody = sentMessage.MessageBody;
+                if (messageBody.Type == MessageType.File && Guid.TryParse(messageBody.Content, out var messageId))
+                {
+                    var message = await _chatRepository.GetMessageAsync(messageId);
+                    if (message != null)
+                    {
+                        await SendMessage(sessions, message.ToMessageBody(), WebSocketMessageType.Text, allUserIds, chat);
+                        return message.SentAt;
+                    }
+                }
+                else
+                {
+                    var chatMessage = await _chatRepository.AddMessageAsync(messageBody, chat, user);
+                    await SendMessage(sessions, chatMessage.ToMessageBody(), WebSocketMessageType.Text, allUserIds, chat);
+                    return chatMessage.SentAt;
+                }
+            }
+
+            var lastMessage = await _chatRepository.GetMessageAsync((Guid)sentMessage.LastMessageReadId);
+            return lastMessage?.SentAt;
+        }
+
+        private async Task<DateTime?> ProcessReceivedMessage(
+            MemoryStream stream,
+            IEnumerable<TaskChatSession> sessions,
+            IEnumerable<Guid> allUserIds,
+            TaskChat chat,
+            UserModel user
+        )
+        {
+            stream.Seek(0, SeekOrigin.Begin);
+            var bytes = stream.GetBuffer();
+            var input = Encoding.UTF8.GetString(bytes);
+
+            if (input == null)
+                return null;
+
+            var sentMessage = JsonConvert.DeserializeObject<SentMessage>(input);
+
+            return await ProcessSentMessage(sentMessage, sessions, allUserIds, chat, user);
+        }
+
+        private async Task UpdateLastViewingDate(TaskChatMembership chatMembership, UserTaskChatSession userChatSession, DateTime? dateLastViewingMessage)
+        {
+            if (dateLastViewingMessage != null)
+            {
+                var dateLastViewing = (DateTime)dateLastViewingMessage;
+                await _chatRepository.UpdateLastViewingChatMembership(chatMembership, dateLastViewing);
+                await _chatRepository.UpdateLastViewingUserChatSession(userChatSession, dateLastViewing);
+            }
+        }
+
+        private async Task CloseWebSocket(WebSocket ws, string? errorMessage)
+        {
+            if (ws.State == WebSocketState.Open)
+                await ws.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, errorMessage, CancellationToken.None);
         }
 
         private byte[] SerializeObject<T>(T obj)

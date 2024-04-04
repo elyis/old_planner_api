@@ -73,6 +73,7 @@ namespace old_planner_api
                     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
                     options.LoginPath = "/google-login";
                 })
+
                 .AddGoogle(options =>
                 {
                     options.ClientSecret = googleSettings.ClientSecret;
@@ -89,6 +90,14 @@ namespace old_planner_api
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
                     };
                 });
+
+            services.AddDistributedMemoryCache();
+            services.AddSession(options =>
+            {
+                options.IdleTimeout = TimeSpan.FromMinutes(15);
+                options.Cookie.HttpOnly = true;
+                options.Cookie.IsEssential = true;
+            });
 
             services.AddAuthorization();
             services.AddLogging(builder =>
@@ -174,6 +183,7 @@ namespace old_planner_api
             app.UseWebSockets(webSocketOptions);
 
             app.UseAuthentication();
+            app.UseSession();
             app.UseAuthorization();
 
             app.MapControllers();

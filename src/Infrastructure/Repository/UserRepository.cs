@@ -4,6 +4,7 @@ using old_planner_api.src.Domain.Models;
 using old_planner_api.src.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using webApiTemplate.src.App.Provider;
+using old_planner_api.src.Domain.Enums;
 
 namespace old_planner_api.src.Infrastructure.Repository
 {
@@ -16,7 +17,7 @@ namespace old_planner_api.src.Infrastructure.Repository
             _context = context;
         }
 
-        public async Task<UserModel?> AddAsync(SignUpBody body, string role)
+        public async Task<UserModel?> AddAsync(SignUpBody body, string role, AuthenticationProviderType providerType)
         {
             var oldUser = await GetAsync(body.Identifier);
             if (oldUser != null)
@@ -29,6 +30,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                 Nickname = body.Nickname,
                 PasswordHash = Hmac512Provider.Compute(body.Password),
                 RoleName = role,
+                AuthorizationProvider = providerType.ToString(),
             };
 
             var result = await _context.Users.AddAsync(newUser);
@@ -83,8 +85,8 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .FirstOrDefaultAsync(e => e.Identifier == identifier);
         }
 
-        public async Task<UserModel?> GetByTokenAsync(string refreshTokenHash)
-            => await _context.Users
+        public async Task<UserSession?> GetUserSessionByTokenAndUser(string refreshTokenHash)
+            => await _context.UserSessions
             .FirstOrDefaultAsync(e => e.Token == refreshTokenHash);
 
         public async Task<List<UserModel>> GetUsersByPatternIdentifier(string identifier)
@@ -106,23 +108,23 @@ namespace old_planner_api.src.Infrastructure.Repository
             return user;
         }
 
-        public async Task<string?> UpdateTokenAsync(string refreshToken, Guid userId, TimeSpan? duration = null)
+        public async Task<string?> UpdateTokenAsync(string refreshToken, Guid sessionId, TimeSpan? duration = null)
         {
-            var user = await GetAsync(userId);
-            if (user == null)
+            var session = await GetSessionAsync(sessionId);
+            if (session == null)
                 return null;
 
             if (duration == null)
                 duration = TimeSpan.FromDays(15);
 
-            if (user.TokenValidBefore <= DateTime.UtcNow || user.TokenValidBefore == null)
+            if (session.TokenValidBefore <= DateTime.UtcNow || session.TokenValidBefore == null)
             {
-                user.TokenValidBefore = DateTime.UtcNow.Add((TimeSpan)duration);
-                user.Token = refreshToken;
+                session.TokenValidBefore = DateTime.UtcNow.Add((TimeSpan)duration);
+                session.Token = refreshToken;
                 await _context.SaveChangesAsync();
             }
 
-            return user.Token;
+            return session.Token;
         }
 
         public async Task<UserModel?> UpdateUserTagAsync(Guid id, string userTag)

@@ -6,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 namespace old_planner_api.src.Domain.Models
 {
     [Index(nameof(Identifier), IsUnique = true)]
-    [Index(nameof(Token))]
     public class UserModel
     {
         public Guid Id { get; set; }
@@ -19,11 +18,10 @@ namespace old_planner_api.src.Domain.Models
         public string RoleName { get; set; }
         public DateTime? RestoreCodeValidBefore { get; set; }
         public bool WasPasswordResetRequest { get; set; }
-        public string? Token { get; set; }
-        public DateTime? TokenValidBefore { get; set; }
         public string? Image { get; set; }
         public string? UserTag { get; set; }
         public string AuthenticationMethod { get; set; }
+        public string AuthorizationProvider { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public List<TaskChatMessage> ChatMessages { get; set; } = new();

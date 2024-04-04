@@ -39,19 +39,16 @@ namespace old_planner_api.src.App.Service
             if (!isValidDeviceId)
                 return new BadRequestObjectResult("DeviceId is not correct format");
 
-            var user = await _userRepository.GetByTokenAsync(refreshToken);
-            if (user == null)
+            var session = await _userRepository.GetUserSessionByTokenAndUser(refreshToken);
+            if (session == null)
                 return new NotFoundResult();
 
-            var session = await _userRepository.GetSessionAsync(user.Id, deviceId);
-            if (session == null)
-                return new ForbidResult();
-
+            var user = session.User;
             var tokenPair = await UpdateToken(user.RoleName, user.Id, session.Id);
             return new OkObjectResult(tokenPair);
         }
 
-        public async Task<IActionResult> SignIn(SignInBody body)
+        public async Task<IActionResult> SignIn(SignInBody body, AuthenticationProviderType provider)
         {
             var isValidIdentifier = IsValidAuthenticationIdentifier(body.Identifier, body.Method);
             if (!isValidIdentifier)
@@ -74,7 +71,7 @@ namespace old_planner_api.src.App.Service
             return new OkObjectResult(tokenPair);
         }
 
-        public async Task<IActionResult> SignUp(SignUpBody body, string rolename)
+        public async Task<IActionResult> SignUp(SignUpBody body, string rolename, AuthenticationProviderType provider)
         {
             var isValidIdentifier = IsValidAuthenticationIdentifier(body.Identifier, body.Method);
             if (!isValidIdentifier)
@@ -84,7 +81,7 @@ namespace old_planner_api.src.App.Service
             if (!isValidDeviceId)
                 return new BadRequestObjectResult("DeviceId is not correct format");
 
-            var user = await _userRepository.AddAsync(body, rolename);
+            var user = await _userRepository.AddAsync(body, rolename, provider);
             if (user == null)
                 return new ConflictResult();
 
@@ -118,7 +115,7 @@ namespace old_planner_api.src.App.Service
             };
 
             var tokenPair = _jwtService.GenerateDefaultTokenPair(tokenInfo);
-            tokenPair.RefreshToken = await _userRepository.UpdateTokenAsync(tokenPair.RefreshToken, tokenInfo.UserId);
+            tokenPair.RefreshToken = await _userRepository.UpdateTokenAsync(tokenPair.RefreshToken, tokenInfo.SessionId);
             return tokenPair;
         }
 
@@ -157,6 +154,18 @@ namespace old_planner_api.src.App.Service
         {
             var phoneRegex = new Regex(@"^\+?\d+$");
             return phoneRegex.IsMatch(phoneNumber);
+        }
+
+        public async Task<bool> AccountIsExist(string identifier)
+        {
+            var user = await _userRepository.GetAsync(identifier);
+            return user != null;
+        }
+
+        public async Task<bool> AccountAuthorizedByProvider(string identifier, AuthenticationProviderType provider)
+        {
+            var user = await _userRepository.GetAsync(identifier);
+            return user != null && user.AuthorizationProvider == provider.ToString();
         }
     }
 }

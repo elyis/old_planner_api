@@ -28,7 +28,7 @@ namespace old_planner_api.src.Web.Controllers
         public async Task<IActionResult> SignUpAsync(SignUpBody signUpBody)
         {
             string role = Enum.GetName(UserRole.Common)!;
-            var result = await _authService.SignUp(signUpBody, role);
+            var result = await _authService.SignUp(signUpBody, role, AuthenticationProviderType.Default);
             return result;
         }
 
@@ -42,7 +42,7 @@ namespace old_planner_api.src.Web.Controllers
         [HttpPost("signin")]
         public async Task<IActionResult> SignInAsync(SignInBody signInBody)
         {
-            var result = await _authService.SignIn(signInBody);
+            var result = await _authService.SignIn(signInBody, AuthenticationProviderType.Default);
             return result;
         }
 

@@ -1,4 +1,6 @@
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -27,12 +29,20 @@ namespace old_planner_api.src.Web.Controllers.View
         }
 
         [HttpGet("google-login")]
-        public IActionResult GoogleLogin()
+        public IActionResult GoogleLogin([FromQuery(Name = "deviceId"), Required] string deviceId)
         {
             var properties = new AuthenticationProperties
             {
                 RedirectUri = Url.Action("GoogleResponse")
             };
+
+
+            var deviceTypeId = GetDeviceType(deviceId);
+            if (deviceTypeId == null)
+                return BadRequest();
+
+            HttpContext.Session.SetString("deviceId", deviceId);
+            HttpContext.Session.SetString("deviceTypeId", deviceTypeId.ToString());
 
             return Challenge(properties, GoogleDefaults.AuthenticationScheme);
         }
@@ -49,27 +59,60 @@ namespace old_planner_api.src.Web.Controllers.View
             var email = claims.First(e => e.Type == ClaimTypes.Email).Value;
             var name = claims.First(e => e.Type == ClaimTypes.Name).Value;
             var nameIdentifier = claims.First(e => e.Type == ClaimTypes.NameIdentifier).Value;
+            _logger.LogCritical(nameIdentifier);
+
+            var session = HttpContext.Session;
+            var deviceTypeId = session.GetString("deviceTypeId");
+            var deviceId = session.GetString("deviceId");
+
+
+            var isExist = await _authService.AccountIsExist(email);
+            if (isExist)
+            {
+                var accountCreatedByGoogle = await _authService.AccountAuthorizedByProvider(email, AuthenticationProviderType.Google);
+                if (!accountCreatedByGoogle)
+                    return Conflict();
+
+                var signInBody = new SignInBody
+                {
+                    Identifier = email,
+                    Method = AuthenticationMethod.Email,
+                    Password = Hmac512Provider.Compute(nameIdentifier),
+                    DeviceId = deviceId,
+                    DeviceTypeId = Enum.Parse<DeviceTypeId>(deviceTypeId)
+                };
+
+                var signInResponse = await _authService.SignIn(signInBody, AuthenticationProviderType.Default);
+                return signInResponse;
+            }
 
             var signUpBody = new SignUpBody
             {
                 Identifier = email,
                 Method = AuthenticationMethod.Email,
                 Nickname = name,
-                Password = Hmac512Provider.Compute(nameIdentifier)
+                Password = Hmac512Provider.Compute(nameIdentifier),
+                DeviceId = deviceId,
+                DeviceTypeId = Enum.Parse<DeviceTypeId>(deviceTypeId)
             };
 
-            var response = await _authService.SignUp(signUpBody, UserRole.Common.ToString());
-            if (response is OkObjectResult okObjectResult)
-                return response;
+            var response = await _authService.SignUp(signUpBody, UserRole.Common.ToString(), AuthenticationProviderType.Google);
+            return response;
+        }
 
-            var signInBody = new SignInBody
-            {
-                Identifier = email,
-                Method = AuthenticationMethod.Email,
-                Password = Hmac512Provider.Compute(nameIdentifier)
-            };
-            var signInResponse = await _authService.SignIn(signInBody);
-            return signInResponse;
+
+        private DeviceTypeId? GetDeviceType(string deviceId)
+        {
+            if (string.IsNullOrEmpty(deviceId))
+                return null;
+
+            var regex = new Regex("^[0-9a-fA-F]{16}$");
+            if (regex.IsMatch(deviceId))
+                return DeviceTypeId.AndroidId;
+            if (Guid.TryParse(deviceId, out _))
+                return DeviceTypeId.UUID;
+
+            return null;
         }
     }
 }

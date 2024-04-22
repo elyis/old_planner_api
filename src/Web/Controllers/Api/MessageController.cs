@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using old_planner_api.src.App.IService;
 using old_planner_api.src.Domain.Entities.Request;
 using old_planner_api.src.Domain.Enums;
@@ -85,13 +86,21 @@ namespace old_planner_api.src.Web.Controllers.Api
             else
                 chat = await _chatRepository.GetAsync(chatMembership.ChatId);
 
-            await _chatRepository.AddMessageAsync(newMessage, chat, currentUser);
+            var chatMessage = await _chatRepository.AddMessageAsync(newMessage, chat, currentUser);
             await task;
 
-            var bytes = Encoding.UTF8.GetBytes(message.Content);
+            var messageBody = chatMessage.ToMessageBody();
+            var bytes = SerializeObject(messageBody);
             await _notificationService.SendMessageToAllUserSessions(user.Id, bytes);
 
             return Ok();
+        }
+
+        private byte[] SerializeObject<T>(T obj)
+        {
+            var serializableString = JsonConvert.SerializeObject(obj);
+            var bytes = Encoding.UTF8.GetBytes(serializableString);
+            return bytes;
         }
     }
 }

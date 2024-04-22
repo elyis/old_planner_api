@@ -31,6 +31,9 @@ namespace old_planner_api
         {
             var jwtSettings = _config.GetSection("JwtSettings").Get<JwtSettings>() ?? throw new Exception("jwt settings is empty");
             var googleSettings = _config.GetSection("GoogleSettings").Get<GoogleSettings>() ?? throw new Exception("google options is empty");
+            var emailServiceSettings = _config.GetSection("EmailServiceSettings").Get<EmailServiceSettings>() ?? throw new Exception();
+
+
             var fileInspector = new ContentInspectorBuilder()
             {
                 Definitions = MimeDetective.Definitions.Default.All(),
@@ -126,8 +129,11 @@ namespace old_planner_api
             services.AddSingleton<IChatConnectionService, ChatConnectionService>();
             services.AddSingleton<IMainMonitoringService, MainMonitoringService>();
             services.AddSingleton<INotificationService, WsNotificationService>();
+            services.AddSingleton<IEmailService, EmailService>();
+
             services.AddSingleton(fileInspector);
             services.AddSingleton(jwtSettings);
+            services.AddSingleton(emailServiceSettings);
 
             services.AddScoped<IAuthService, AuthService>();
 

@@ -2,21 +2,20 @@ using old_planner_api.src.Domain.Entities.Response;
 
 namespace old_planner_api.src.Domain.Models
 {
-    public class Board
+    public class BoardColumn
     {
         public Guid Id { get; set; }
         public string Name { get; set; }
 
-        public List<BoardMember> Members { get; set; } = new();
-        public List<BoardColumn> Columns { get; set; } = new();
+        public Board Board { get; set; }
+        public Guid BoardId { get; set; }
 
-
-        public BoardBody ToBoardBody()
+        public BoardColumnBody ToBoardColumnBody()
         {
-            return new BoardBody
+            return new BoardColumnBody
             {
                 Id = Id,
-                Name = Name
+                Name = Name,
             };
         }
     }

@@ -9,5 +9,7 @@ namespace old_planner_api.src.Domain.IRepository
         Task<Board?> AddAsync(CreateBoardBody boardBody, UserModel user);
         Task<Board?> GetAsync(Guid id);
         Task<BoardMember?> GetBoardMemberAsync(Guid userId, Guid boardId);
+        Task<IEnumerable<BoardColumn>> GetBoardColumns(Guid boardId);
+        Task<BoardColumn?> GetBoardColumn(Guid columnId);
     }
 }

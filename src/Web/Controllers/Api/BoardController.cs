@@ -1,7 +1,9 @@
+using System.ComponentModel.DataAnnotations;
 using System.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using old_planner_api.src.Domain.Entities.Request;
+using old_planner_api.src.Domain.Entities.Response;
 using old_planner_api.src.Domain.IRepository;
 using Swashbuckle.AspNetCore.Annotations;
 using webApiTemplate.src.App.IService;
@@ -46,7 +48,7 @@ namespace old_planner_api.src.Web.Controllers
         }
 
         [HttpGet("boards"), Authorize]
-        [SwaggerOperation("Получить все доски")]
+        [SwaggerOperation("Получить список досок")]
         [SwaggerResponse(200)]
 
         public async Task<IActionResult> GetBoards(
@@ -56,6 +58,19 @@ namespace old_planner_api.src.Web.Controllers
             var tokenInfo = _jwtService.GetTokenInfo(token);
             var boards = await _boardRepository.GetAll(tokenInfo.UserId);
             var result = boards.Select(e => e.ToBoardBody());
+            return Ok(result);
+        }
+
+        [HttpGet("columns"), Authorize]
+        [SwaggerOperation("Получить список колоннок")]
+        [SwaggerResponse(200, Type = typeof(IEnumerable<BoardColumnBody>))]
+
+        public async Task<IActionResult> GetColumnsByBoard(
+            [FromQuery, Required] Guid boardId
+        )
+        {
+            var columns = await _boardRepository.GetBoardColumns(boardId);
+            var result = columns.Select(e => e.ToBoardColumnBody());
             return Ok(result);
         }
     }

@@ -40,7 +40,7 @@ namespace old_planner_api.src.Web.Controllers
 
         public async Task<IActionResult> CreateDraft(
             [FromBody] CreateDraftBody draftBody,
-            [FromQuery, Required] Guid boardId,
+            [FromQuery, Required] Guid columnId,
             [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
         )
         {
@@ -51,12 +51,12 @@ namespace old_planner_api.src.Web.Controllers
                 return BadRequest("End time format is not correct");
 
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenInfo.UserId, boardId);
+            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenInfo.UserId, columnId);
             if (boardMember == null)
                 return Forbid();
 
-            var board = await _boardRepository.GetAsync(boardId);
-            if (board == null)
+            var column = await _boardRepository.GetBoardColumn(columnId);
+            if (column == null)
                 return NotFound();
 
             TaskModel? draftOfTask = null;
@@ -68,7 +68,7 @@ namespace old_planner_api.src.Web.Controllers
             }
 
             var user = await _userRepository.GetAsync(tokenInfo.UserId);
-            var result = await _taskRepository.AddAsync(draftBody, board, user, draftOfTask);
+            var result = await _taskRepository.AddAsync(draftBody, column, user, draftOfTask);
             return result == null ? BadRequest() : Ok(result.ToTaskBody());
         }
 

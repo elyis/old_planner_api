@@ -25,14 +25,16 @@ namespace old_planner_api.src.Domain.Models
         public TaskModel? DraftOfTask { get; set; }
         public Guid? DraftOfTaskId { get; set; }
 
-        public Board Board { get; set; }
-        public Guid BoardId { get; set; }
+        public BoardColumn Column { get; set; }
+        public Guid ColumnId { get; set; }
 
         public DeletedTask? DeletedTask { get; set; }
 
         public UserModel Creator { get; set; }
         public Guid CreatorId { get; set; }
-        public TaskChat Chat { get; set; }
+
+        public Chat Chat { get; set; }
+        public Guid ChatId { get; set; }
 
 
         public TaskBody ToTaskBody()

@@ -19,7 +19,7 @@ namespace old_planner_api.src.Infrastructure.Repository
         public async Task<TaskModel?> AddAsync
         (
             CreateTaskBody taskBody,
-            Board board,
+            BoardColumn column,
             UserModel creator
         )
         {
@@ -30,7 +30,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                 HexColor = taskBody.HexColor,
                 PriorityOrder = taskBody.PriorityOrder,
                 Status = taskBody.Status.ToString(),
-                Board = board,
+                Column = column,
                 Creator = creator,
                 IsDraft = false,
                 StartDate = ParseDateTime(taskBody.StartDate),
@@ -43,7 +43,7 @@ namespace old_planner_api.src.Infrastructure.Repository
         public async Task<TaskModel?> AddAsync
         (
             CreateDraftBody draftBody,
-            Board board,
+            BoardColumn column,
             UserModel creator,
             TaskModel? parentTask
         )
@@ -55,7 +55,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                 HexColor = draftBody.HexColor,
                 PriorityOrder = 0,
                 Status = TaskState.Undefined.ToString(),
-                Board = board,
+                Column = column,
                 Creator = creator,
                 IsDraft = true,
                 StartDate = ParseDateTime(draftBody.StartDate),
@@ -66,22 +66,22 @@ namespace old_planner_api.src.Infrastructure.Repository
             return await AddTaskAsync(task, creator);
         }
 
-        public async Task<IEnumerable<TaskModel>> GetAll(Guid boardId, bool isDraft = false)
+        public async Task<IEnumerable<TaskModel>> GetAll(Guid columnId, bool isDraft = false)
             => await _context.Tasks
                 .Include(e => e.Chat)
                 .Where(e =>
                     e.IsDraft == isDraft &&
-                    e.BoardId == boardId)
+                    e.ColumnId == columnId)
                 .ToListAsync();
 
-        public async Task<IEnumerable<TaskModel>> GetAll(Guid boardId, TaskState? status, bool isDraft = false)
+        public async Task<IEnumerable<TaskModel>> GetAll(Guid columnId, TaskState? status, bool isDraft = false)
         {
             if (status == null)
                 return await _context.Tasks
                 .Include(e => e.Chat)
                 .Where(e =>
                     e.IsDraft == isDraft &&
-                    e.BoardId == boardId)
+                    e.ColumnId == columnId)
                 .ToListAsync();
 
             var statusString = status.ToString();
@@ -90,16 +90,16 @@ namespace old_planner_api.src.Infrastructure.Repository
                 .Where(e =>
                     e.Status == statusString &&
                     e.IsDraft == isDraft &&
-                    e.BoardId == boardId)
+                    e.ColumnId == columnId)
                 .ToListAsync();
 
             return tasks;
         }
 
-        public async Task<IEnumerable<TaskModel>> GetAll(Guid boardId)
+        public async Task<IEnumerable<TaskModel>> GetAll(Guid columnId)
             => await _context.Tasks
                 .Include(e => e.Chat)
-                .Where(e => e.BoardId == boardId)
+                .Where(e => e.ColumnId == columnId)
                 .ToListAsync();
 
         public async Task<TaskModel?> GetAsync(Guid id, bool isDraft)
@@ -121,7 +121,7 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             var draft = await _context.Tasks
                 .Include(e => e.DraftOfTask)
-                .Include(e => e.Board)
+                .Include(e => e.Column)
                 .FirstOrDefaultAsync(e => e.Id == id && e.IsDraft);
             if (draft == null)
                 return null;
@@ -139,7 +139,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                 task.StartDate = draft.StartDate;
                 task.EndDate = draft.EndDate;
                 task.Creator = user;
-                task.Board = draft.Board;
+                task.Column = draft.Column;
                 task.IsDraft = false;
             }
             else
@@ -154,7 +154,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                     StartDate = draft.StartDate,
                     EndDate = draft.EndDate,
                     Creator = user,
-                    Board = draft.Board,
+                    Column = draft.Column,
                     IsDraft = false
                 };
                 task = await AddTaskAsync(task, user);
@@ -201,14 +201,14 @@ namespace old_planner_api.src.Infrastructure.Repository
             if (task == null)
                 return null;
 
-            task.Chat = new TaskChat
+            task.Chat = new Chat
             {
                 Task = task,
                 Name = task.Title,
-                Memberships = new List<TaskChatMembership>
+                ChatMemberships = new List<ChatMembership>
                 {
                     new() {
-                        Participant = user
+                        User = user
                     }
                 }
             };
@@ -238,9 +238,9 @@ namespace old_planner_api.src.Infrastructure.Repository
             destination.DraftOfTask = draftOfTask;
         }
 
-        public async Task<IEnumerable<TaskModel>> GetAllDrafts(Guid boardId, Guid userId)
+        public async Task<IEnumerable<TaskModel>> GetAllDrafts(Guid columnId, Guid userId)
             => await _context.Tasks
-                .Where(e => e.BoardId == boardId && e.CreatorId == userId)
+                .Where(e => e.ColumnId == columnId && e.CreatorId == userId)
                 .ToListAsync();
     }
 }

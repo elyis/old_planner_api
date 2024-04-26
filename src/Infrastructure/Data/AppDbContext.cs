@@ -21,6 +21,7 @@ namespace old_planner_api.src.Infrastructure.Data
         public DbSet<DeletedTask> DeletedTasks { get; set; }
         public DbSet<Board> Boards { get; set; }
         public DbSet<BoardMember> BoardMembers { get; set; }
+        public DbSet<BoardColumn> BoardColumns { get; set; }
         public DbSet<TaskChatMessage> TaskChatMessages { get; set; }
         public DbSet<TaskChat> TaskChats { get; set; }
         public DbSet<TaskChatMembership> TaskChatMemberships { get; set; }

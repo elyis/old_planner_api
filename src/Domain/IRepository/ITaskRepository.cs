@@ -6,14 +6,14 @@ namespace old_planner_api.src.Domain.IRepository
 {
     public interface ITaskRepository
     {
-        Task<TaskModel?> AddAsync(CreateTaskBody taskBody, Board board, UserModel creator);
-        Task<TaskModel?> AddAsync(CreateDraftBody draftBody, Board board, UserModel creator, TaskModel? parentTask);
+        Task<TaskModel?> AddAsync(CreateTaskBody taskBody, BoardColumn column, UserModel creator);
+        Task<TaskModel?> AddAsync(CreateDraftBody draftBody, BoardColumn column, UserModel creator, TaskModel? parentTask);
         Task<TaskModel?> GetAsync(Guid id, bool isDraft);
         Task<bool> RemoveAsync(Guid id, bool isDraft);
-        Task<IEnumerable<TaskModel>> GetAll(Guid boardId, TaskState? status, bool isDraft = false);
-        Task<IEnumerable<TaskModel>> GetAll(Guid boardId, bool isDraft = false);
-        Task<IEnumerable<TaskModel>> GetAllDrafts(Guid boardId, Guid userId);
-        Task<IEnumerable<TaskModel>> GetAll(Guid boardId);
+        Task<IEnumerable<TaskModel>> GetAll(Guid columnId, TaskState? status, bool isDraft = false);
+        Task<IEnumerable<TaskModel>> GetAll(Guid columnId, bool isDraft = false);
+        Task<IEnumerable<TaskModel>> GetAllDrafts(Guid columnId, Guid userId);
+        Task<IEnumerable<TaskModel>> GetAll(Guid columnId);
         Task<TaskModel?> ConvertDraftToTask(Guid id, UserModel user);
         Task<TaskModel?> UpdateAsync(UpdateTaskBody taskBody);
         Task<TaskModel?> UpdateAsync(UpdateDraftBody draftBody, TaskModel? draftOfTask);

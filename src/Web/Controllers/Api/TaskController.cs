@@ -45,6 +45,7 @@ namespace old_planner_api.src.Web.Controllers
         public async Task<IActionResult> CreateTask(
             [FromBody] CreateTaskBody taskBody,
             [FromQuery, Required] Guid boardId,
+            [FromQuery, Required] Guid columnId,
             [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
         )
         {
@@ -53,12 +54,12 @@ namespace old_planner_api.src.Web.Controllers
             if (authorizeCheck is ForbidResult)
                 return authorizeCheck;
 
-            var board = await _boardRepository.GetAsync(boardId);
-            if (board == null)
+            var column = await _boardRepository.GetBoardColumn(columnId);
+            if (column == null)
                 return NotFound();
 
             var user = await _userRepository.GetAsync(tokenInfo.UserId);
-            var result = await _taskRepository.AddAsync(taskBody, board, user);
+            var result = await _taskRepository.AddAsync(taskBody, column, user);
             return result == null ? BadRequest() : Ok(result.ToTaskBody());
         }
 

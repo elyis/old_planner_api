@@ -52,5 +52,18 @@ namespace old_planner_api.src.Infrastructure.Repository
 
         public async Task<Board?> GetAsync(Guid id)
             => await _context.Boards.FindAsync(id);
+
+        public async Task<IEnumerable<BoardColumn>> GetBoardColumns(Guid boardId)
+        {
+            return await _context.BoardColumns
+                .Where(e => e.BoardId == boardId)
+                .ToListAsync();
+        }
+
+        public async Task<BoardColumn?> GetBoardColumn(Guid columnId)
+        {
+            return await _context.BoardColumns
+                .FirstOrDefaultAsync(e => e.Id == columnId);
+        }
     }
 }

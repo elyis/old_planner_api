@@ -16,20 +16,17 @@ namespace old_planner_api.src.App.Service
     {
         private readonly IUserRepository _userRepository;
         private readonly IChatRepository _chatRepository;
-        private readonly ITaskChatRepository _taskChatRepository;
         private readonly IJwtService _jwtService;
 
         public AuthService
         (
             IUserRepository userRepository,
             IChatRepository chatRepository,
-            ITaskChatRepository taskChatRepository,
             IJwtService jwtService
         )
         {
             _userRepository = userRepository;
             _chatRepository = chatRepository;
-            _taskChatRepository = taskChatRepository;
             _jwtService = jwtService;
         }
 
@@ -99,8 +96,7 @@ namespace old_planner_api.src.App.Service
                 return session;
             }
 
-            await _chatRepository.CreateUserChatSessionAsync(session);
-            await _taskChatRepository.CreateUserChatSessionAsync(session);
+            await _chatRepository.CreateUserChatSessionsAsync(session);
 
             return session;
         }

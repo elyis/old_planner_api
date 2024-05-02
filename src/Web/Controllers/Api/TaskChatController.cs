@@ -24,9 +24,9 @@ namespace old_planner_api.src.Web.Controllers
     {
         private readonly IJwtService _jwtService;
         private readonly IFileUploaderService _fileUploaderService;
-        private readonly ITaskChatConnectionService _taskChatService;
-        private readonly ITaskChatHandler _taskChatHandler;
-        private readonly ITaskChatRepository _chatRepository;
+        private readonly ITaskChatConnectionService _chatConnectionService;
+        private readonly IChatHandler _chatHandler;
+        private readonly IChatRepository _chatRepository;
         private readonly IUserRepository _userRepository;
         private readonly ContentInspector _contentInspector;
 
@@ -34,18 +34,18 @@ namespace old_planner_api.src.Web.Controllers
         public TaskChatController(
             IJwtService jwtService,
             ITaskChatConnectionService taskChatService,
-            ITaskChatRepository chatRepository,
+            IChatRepository chatRepository,
             IUserRepository userRepository,
-            ITaskChatHandler taskChatHandler,
+            IChatHandler taskChatHandler,
             IFileUploaderService fileUploaderService,
             ContentInspector contentInspector
         )
         {
             _jwtService = jwtService;
-            _taskChatService = taskChatService;
+            _chatConnectionService = taskChatService;
             _chatRepository = chatRepository;
             _userRepository = userRepository;
-            _taskChatHandler = taskChatHandler;
+            _chatHandler = taskChatHandler;
             _fileUploaderService = fileUploaderService;
             _contentInspector = contentInspector;
         }
@@ -63,7 +63,7 @@ namespace old_planner_api.src.Web.Controllers
             if (!websocketManager.IsWebSocketRequest)
                 return;
 
-            var chat = await _chatRepository.GetChatAsync(chatId);
+            var chat = await _chatRepository.GetAsync(chatId);
             if (chat == null)
                 return;
 
@@ -72,32 +72,34 @@ namespace old_planner_api.src.Web.Controllers
             var ws = await websocketManager.AcceptWebSocketAsync();
 
 
-            var session = new TaskChatSession
+            var session = new ChatSession
             {
                 User = user.ToChatUserInfo(),
                 Ws = ws,
                 SessionId = tokenInfo.SessionId
             };
 
-            var currentChatMembership = await _chatRepository.AddOrGetChatMembershipAsync(chat, user);
-            if (currentChatMembership == null)
+            var chatMembership = await _chatRepository.CreateOrGetChatMembershipAsync(chat, user);
+            if (chatMembership == null)
                 return;
 
-
-
-            var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
-            var userIds = chatMemberships.Select(e => e.ParticipantId).ToList();
-
-            var userChatSession = await _chatRepository.GetUserChatSessionAsync(currentChatMembership.Id, user.Id);
+            var userChatSession = await _chatRepository.GetUserChatSessionAsync(tokenInfo.SessionId, chatMembership.Id);
             if (userChatSession == null)
                 return;
 
-            var lobby = _taskChatService.AddSessionToLobby(chatId, session);
+            if (!_chatConnectionService.LobbyIsExist(chatId))
+            {
+                var chatMemberships = await _chatRepository.GetChatMembershipsAsync(chatId);
+                var userIds = chatMemberships.Select(e => e.UserId).ToList();
+                _chatConnectionService.AddLobby(chatId, userIds);
+            }
+
+            var lobby = _chatConnectionService.AddSessionToLobby(chatId, session);
             if (lobby == null)
                 return;
 
-            await _taskChatHandler.Invoke(user, currentChatMembership, chat, lobby, session, userChatSession);
-            _taskChatService.RemoveConnection(chatId, session);
+            await _chatHandler.Invoke(user, chatMembership, chat, lobby, session, userChatSession);
+            _chatConnectionService.RemoveConnection(chatId, session);
         }
 
         [HttpPost("api/taskChat/messages")]
@@ -112,7 +114,7 @@ namespace old_planner_api.src.Web.Controllers
         )
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var membership = await _chatRepository.GetTaskChatMembershipAsync(chatId, tokenInfo.UserId);
+            var membership = await _chatRepository.GetMembershipAsync(chatId, tokenInfo.UserId);
             if (membership == null)
                 return Forbid();
 
@@ -125,14 +127,14 @@ namespace old_planner_api.src.Web.Controllers
 
         [HttpGet("api/taskChats"), Authorize]
         [SwaggerOperation("Получить список чатов")]
-        [SwaggerResponse(200, Type = typeof(IEnumerable<TaskChatBody>))]
+        [SwaggerResponse(200, Type = typeof(IEnumerable<ChatBody>))]
 
         public async Task<IActionResult> GetChats(
             [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
         )
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var result = await _chatRepository.GetUserChatBodies(tokenInfo.UserId, tokenInfo.SessionId);
+            var result = await _chatRepository.GetChatBodies(tokenInfo.UserId, tokenInfo.SessionId, ChatType.Task);
             return Ok(result);
         }
 
@@ -150,7 +152,7 @@ namespace old_planner_api.src.Web.Controllers
             var userIdentifiers = identifiers.ToHashSet().ToList();
             var users = await _userRepository.GetUsersAsync(userIdentifiers);
 
-            var chat = await _chatRepository.GetChatAsync(chatId);
+            var chat = await _chatRepository.GetAsync(chatId);
             if (chat == null)
                 return BadRequest("chatId is empty");
 
@@ -161,7 +163,7 @@ namespace old_planner_api.src.Web.Controllers
             foreach (var user in users)
             {
                 var userSessions = await _userRepository.GetUserSessionsAsync(user.Id);
-                var result = await _chatRepository.AddChatMembershipAsync(chat, user);
+                var result = await _chatRepository.AddMembershipAsync(user, chat);
                 if (result == null)
                     notAddedUsers.Add(user.Identifier);
                 else
@@ -181,7 +183,7 @@ namespace old_planner_api.src.Web.Controllers
             [FromForm, Required] IFormFile file
         )
         {
-            var resultUpload = await UploadFileAsync(Constants.localPathToTaskChatAttachments, file);
+            var resultUpload = await UploadFileAsync(Constants.localPathToPrivateChatAttachments, file);
             if (resultUpload is not OkObjectResult)
                 return resultUpload;
 
@@ -190,7 +192,7 @@ namespace old_planner_api.src.Web.Controllers
             var filename = (string)result.Value;
             var tokenInfo = _jwtService.GetTokenInfo(token);
 
-            var chat = await _chatRepository.GetChatAsync(chatId);
+            var chat = await _chatRepository.GetAsync(chatId);
             if (chat == null)
                 return BadRequest();
 
@@ -205,17 +207,17 @@ namespace old_planner_api.src.Web.Controllers
             if (chatMessage == null)
                 return BadRequest();
 
-            var curMembership = await _chatRepository.GetTaskChatMembershipAsync(chatId, tokenInfo.UserId);
+            var curMembership = await _chatRepository.GetMembershipAsync(chatId, tokenInfo.UserId);
             var userSession = await _chatRepository.GetUserChatSessionAsync(tokenInfo.SessionId, curMembership.Id);
 
             var memberships = await _chatRepository.GetChatMembershipsAsync(chatId);
-            var userIds = memberships.Select(e => e.ParticipantId).ToList();
+            var userIds = memberships.Select(e => e.UserId).ToList();
             await _chatRepository.UpdateLastViewingChatMembership(curMembership, chatMessage.SentAt);
             await _chatRepository.UpdateLastViewingUserChatSession(userSession, chatMessage.SentAt);
 
-            var chatLobby = _taskChatService.GetConnections(chatId);
+            var chatLobby = _chatConnectionService.GetConnections(chatId);
             if (chatLobby != null)
-                await _taskChatHandler.SendMessage(chatLobby.ActiveSessions.Select(e => e.Value), chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
+                await _chatHandler.SendMessage(chatLobby.ActiveSessions.Select(e => e.Value), chatMessage.ToMessageBody(), WebSocketMessageType.Text, userIds, chat);
             return Ok();
         }
 
@@ -226,7 +228,7 @@ namespace old_planner_api.src.Web.Controllers
         [SwaggerResponse(404, Description = "Неверное имя файла")]
 
         public async Task<IActionResult> GetTaskChatAttachments([Required] string filename)
-            => await GetIconAsync(Constants.localPathToTaskChatAttachments, filename);
+            => await GetIconAsync(Constants.localPathToChatIcons, filename);
 
         [HttpGet("api/upload/taskChatIcon/{filename}")]
         [SwaggerOperation("Получить иконку чата")]

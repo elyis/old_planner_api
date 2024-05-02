@@ -21,12 +21,12 @@ namespace old_planner_api.src.Domain.Models
         public DateTime? EndDate { get; set; }
         public DateTime CreatedAtDate { get; set; } = DateTime.UtcNow;
         public bool IsDraft { get; set; }
+        public string Type { get; set; }
 
         public TaskModel? DraftOfTask { get; set; }
         public Guid? DraftOfTaskId { get; set; }
 
-        public BoardColumn Column { get; set; }
-        public Guid ColumnId { get; set; }
+        public List<BoardColumnTask> Columns { get; set; } = new();
 
         public DeletedTask? DeletedTask { get; set; }
 
@@ -34,7 +34,6 @@ namespace old_planner_api.src.Domain.Models
         public Guid CreatorId { get; set; }
 
         public Chat Chat { get; set; }
-        public Guid ChatId { get; set; }
 
 
         public TaskBody ToTaskBody()

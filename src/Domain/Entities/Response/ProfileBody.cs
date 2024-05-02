@@ -4,6 +4,7 @@ namespace old_planner_api.src.Domain.Entities.Response
 {
     public class ProfileBody
     {
+        public Guid Id { get; set; }
         public string Identifier { get; set; }
         public string Nickname { get; set; }
         public UserRole Role { get; set; }

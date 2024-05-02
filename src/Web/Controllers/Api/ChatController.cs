@@ -17,6 +17,7 @@ using old_planner_api.src.Ws.Entities;
 using Swashbuckle.AspNetCore.Annotations;
 using webApiTemplate.src.App.IService;
 
+
 namespace old_planner_api.src.Web.Controllers
 {
     [ApiController]
@@ -111,7 +112,7 @@ namespace old_planner_api.src.Web.Controllers
         )
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);
-            var chats = await _chatRepository.GetUserChats(tokenInfo.UserId, tokenInfo.SessionId);
+            var chats = await _chatRepository.GetChatBodies(tokenInfo.UserId, tokenInfo.SessionId, ChatType.Personal);
             return Ok(chats);
         }
 

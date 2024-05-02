@@ -12,6 +12,7 @@ namespace old_planner_api.src.Domain.Models
         public string Type { get; set; }
 
         public TaskModel? Task { get; set; }
+        public Guid? TaskId { get; set; }
 
         public List<ChatMessage> Messages { get; set; } = new();
         public List<ChatMembership> ChatMemberships { get; set; } = new();

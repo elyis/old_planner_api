@@ -7,14 +7,14 @@ namespace old_planner_api.src.Ws.App.Service
     public class TaskChatConnectionService : ITaskChatConnectionService
     {
         private readonly ILogger<TaskChatConnectionService> _logger;
-        private ConcurrentDictionary<Guid, TaskChatLobby> _chatLobbies { get; set; } = new();
+        private ConcurrentDictionary<Guid, ChatLobby> _chatLobbies { get; set; } = new();
 
         public TaskChatConnectionService(ILogger<TaskChatConnectionService> logger)
         {
             _logger = logger;
         }
 
-        public TaskChatLobby? AddSessionToLobby(Guid chatId, TaskChatSession session)
+        public ChatLobby? AddSessionToLobby(Guid chatId, ChatSession session)
         {
             if (_chatLobbies.TryGetValue(chatId, out var lobby) && !lobby.ActiveSessions.ContainsKey(session.SessionId))
             {
@@ -26,12 +26,12 @@ namespace old_planner_api.src.Ws.App.Service
             return null;
         }
 
-        public TaskChatLobby? GetConnections(Guid chatId)
+        public ChatLobby? GetConnections(Guid chatId)
         {
             return _chatLobbies.TryGetValue(chatId, out var lobby) ? lobby : null;
         }
 
-        public void RemoveConnection(Guid chatId, TaskChatSession session)
+        public void RemoveConnection(Guid chatId, ChatSession session)
         {
             if (_chatLobbies.TryGetValue(chatId, out var chat))
             {
@@ -44,12 +44,12 @@ namespace old_planner_api.src.Ws.App.Service
             _logger.LogInformation($"connection is deleted {session.SessionId}");
         }
 
-        public TaskChatLobby? AddLobby(Guid chatId, List<Guid> allUserIds)
+        public ChatLobby? AddLobby(Guid chatId, List<Guid> allUserIds)
         {
             if (_chatLobbies.TryGetValue(chatId, out var _))
                 return null;
 
-            return _chatLobbies.GetOrAdd(chatId, new TaskChatLobby { AllChatUsers = allUserIds });
+            return _chatLobbies.GetOrAdd(chatId, new ChatLobby { AllChatUsers = allUserIds });
         }
 
         public bool LobbyIsExist(Guid chatId)

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using old_planner_api.src.Infrastructure.Data;
@@ -11,9 +12,11 @@ using old_planner_api.src.Infrastructure.Data;
 namespace old_planner_api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240426082657_join_chat_tables")]
+    partial class join_chat_tables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -57,40 +60,6 @@ namespace old_planner_api.Migrations
                     b.ToTable("BoardColumns");
                 });
 
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardColumnMember", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ColumnId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("UserId", "ColumnId");
-
-                    b.HasIndex("ColumnId");
-
-                    b.ToTable("ColumnMembers");
-                });
-
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardColumnTask", b =>
-                {
-                    b.Property<Guid>("TaskId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("ColumnId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("TaskId", "ColumnId");
-
-                    b.HasIndex("ColumnId");
-
-                    b.ToTable("BoardColumnTasks");
-                });
-
             modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardMember", b =>
                 {
                     b.Property<Guid>("BoardId")
@@ -124,17 +93,11 @@ namespace old_planner_api.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
-                    b.Property<Guid?>("TaskId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("TaskId")
-                        .IsUnique();
 
                     b.ToTable("Chats");
                 });
@@ -221,6 +184,12 @@ namespace old_planner_api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ColumnId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAtDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -259,32 +228,18 @@ namespace old_planner_api.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("ChatId")
+                        .IsUnique();
+
+                    b.HasIndex("ColumnId");
 
                     b.HasIndex("CreatorId");
 
                     b.HasIndex("DraftOfTaskId");
 
                     b.ToTable("Tasks");
-                });
-
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskPerformer", b =>
-                {
-                    b.Property<Guid>("PerformerId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("TaskId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("PerformerId", "TaskId");
-
-                    b.HasIndex("TaskId");
-
-                    b.ToTable("TaskPerformers");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.UserChatSession", b =>
@@ -405,44 +360,6 @@ namespace old_planner_api.Migrations
                     b.Navigation("Board");
                 });
 
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardColumnMember", b =>
-                {
-                    b.HasOne("old_planner_api.src.Domain.Models.BoardColumn", "Column")
-                        .WithMany("Members")
-                        .HasForeignKey("ColumnId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("old_planner_api.src.Domain.Models.UserModel", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Column");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardColumnTask", b =>
-                {
-                    b.HasOne("old_planner_api.src.Domain.Models.BoardColumn", "Column")
-                        .WithMany()
-                        .HasForeignKey("ColumnId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "Task")
-                        .WithMany("Columns")
-                        .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Column");
-
-                    b.Navigation("Task");
-                });
-
             modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardMember", b =>
                 {
                     b.HasOne("old_planner_api.src.Domain.Models.Board", "Board")
@@ -460,15 +377,6 @@ namespace old_planner_api.Migrations
                     b.Navigation("Board");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.Chat", b =>
-                {
-                    b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "Task")
-                        .WithOne("Chat")
-                        .HasForeignKey("old_planner_api.src.Domain.Models.Chat", "TaskId");
-
-                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.ChatMembership", b =>
@@ -522,6 +430,18 @@ namespace old_planner_api.Migrations
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
                 {
+                    b.HasOne("old_planner_api.src.Domain.Models.Chat", "Chat")
+                        .WithOne("Task")
+                        .HasForeignKey("old_planner_api.src.Domain.Models.TaskModel", "ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("old_planner_api.src.Domain.Models.BoardColumn", "Column")
+                        .WithMany()
+                        .HasForeignKey("ColumnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Creator")
                         .WithMany()
                         .HasForeignKey("CreatorId")
@@ -532,28 +452,13 @@ namespace old_planner_api.Migrations
                         .WithMany()
                         .HasForeignKey("DraftOfTaskId");
 
+                    b.Navigation("Chat");
+
+                    b.Navigation("Column");
+
                     b.Navigation("Creator");
 
                     b.Navigation("DraftOfTask");
-                });
-
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskPerformer", b =>
-                {
-                    b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Performer")
-                        .WithMany()
-                        .HasForeignKey("PerformerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "Task")
-                        .WithMany()
-                        .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Performer");
-
-                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.UserChatSession", b =>
@@ -593,16 +498,13 @@ namespace old_planner_api.Migrations
                     b.Navigation("Members");
                 });
 
-            modelBuilder.Entity("old_planner_api.src.Domain.Models.BoardColumn", b =>
-                {
-                    b.Navigation("Members");
-                });
-
             modelBuilder.Entity("old_planner_api.src.Domain.Models.Chat", b =>
                 {
                     b.Navigation("ChatMemberships");
 
                     b.Navigation("Messages");
+
+                    b.Navigation("Task");
                 });
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.ChatMembership", b =>
@@ -612,11 +514,6 @@ namespace old_planner_api.Migrations
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
                 {
-                    b.Navigation("Chat")
-                        .IsRequired();
-
-                    b.Navigation("Columns");
-
                     b.Navigation("DeletedTask");
                 });
 

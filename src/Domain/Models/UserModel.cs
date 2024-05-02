@@ -24,8 +24,6 @@ namespace old_planner_api.src.Domain.Models
         public string AuthorizationProvider { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public List<TaskChatMessage> ChatMessages { get; set; } = new();
-        public List<TaskChatMembership> TaskChatMemberships { get; set; } = new();
         public List<ChatMessage> SentMessages { get; set; } = new();
 
         public List<ChatMembership> ChatMemberships { get; set; } = new();
@@ -35,6 +33,7 @@ namespace old_planner_api.src.Domain.Models
         {
             return new ProfileBody
             {
+                Id = Id,
                 Nickname = Nickname,
                 Role = Enum.Parse<UserRole>(RoleName),
                 UrlIcon = string.IsNullOrEmpty(Image) ? null : $"{Constants.webPathToProfileIcons}{Image}",

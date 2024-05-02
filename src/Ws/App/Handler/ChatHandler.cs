@@ -16,12 +16,12 @@ namespace old_planner_api.src.Ws.App.Handler
     public class ChatHandler : IChatHandler
     {
         private readonly IChatRepository _chatRepository;
-        private readonly ILogger<TaskChatHandler> _logger;
+        private readonly ILogger<ChatHandler> _logger;
         private readonly INotificationService _notificationService;
 
         public ChatHandler(
             IChatRepository chatRepository,
-            ILogger<TaskChatHandler> logger,
+            ILogger<ChatHandler> logger,
             INotificationService notificationService
         )
         {

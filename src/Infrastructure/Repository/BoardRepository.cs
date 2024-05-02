@@ -36,6 +36,29 @@ namespace old_planner_api.src.Infrastructure.Repository
             return board;
         }
 
+        public async Task<BoardMember?> AddBoardMember(UserModel user, Guid boardId)
+        {
+            var board = await GetAsync(boardId);
+            if (board == null)
+                return null;
+
+            var boardMember = await GetBoardMemberAsync(user.Id, boardId);
+            if (boardMember != null)
+                return null;
+
+            boardMember = new BoardMember
+            {
+                Board = board,
+                User = user,
+                Role = BoardMemberRoles.Participant.ToString(),
+            };
+
+            boardMember = (await _context.BoardMembers.AddAsync(boardMember))?.Entity;
+            await _context.SaveChangesAsync();
+
+            return boardMember;
+        }
+
         public async Task<BoardMember?> GetBoardMemberAsync(Guid userId, Guid boardId)
             => await _context.BoardMembers
                 .FirstOrDefaultAsync(e => e.BoardId == boardId && e.UserId == userId);
@@ -64,6 +87,42 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             return await _context.BoardColumns
                 .FirstOrDefaultAsync(e => e.Id == columnId);
+        }
+
+        public async Task<IEnumerable<UserModel>> GetBoardMembers(Guid boardId, int count, int offset)
+        {
+            var boardMembers = await _context.BoardMembers
+                .Include(e => e.User)
+                .OrderBy(e => e.UserId)
+                .Where(e => e.BoardId == boardId)
+                .Skip(offset)
+                .Take(count)
+                .ToListAsync();
+
+            var members = boardMembers.Select(e => e.User);
+            return members;
+        }
+
+        public async Task<IEnumerable<BoardMember>> GetBoardMembers(IEnumerable<Guid> memberIds, Guid boardId)
+        {
+            return await _context.BoardMembers
+                .Include(e => e.User)
+                .Where(e => e.BoardId == boardId && memberIds.Contains(e.UserId))
+                .ToListAsync();
+        }
+
+        public async Task<BoardColumn?> AddBoardColumn(Board board, string name)
+        {
+            var boardColumn = new BoardColumn
+            {
+                Board = board,
+                Name = name,
+            };
+
+            boardColumn = (await _context.BoardColumns.AddAsync(boardColumn))?.Entity;
+            await _context.SaveChangesAsync();
+
+            return boardColumn;
         }
     }
 }

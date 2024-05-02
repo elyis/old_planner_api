@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
+using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using old_planner_api.src.Domain.Entities.Request;
@@ -61,7 +62,7 @@ namespace old_planner_api.src.Web.Controllers
             return Ok(result);
         }
 
-        [HttpGet("columns"), Authorize]
+        [HttpGet("board/columns"), Authorize]
         [SwaggerOperation("Получить список колоннок")]
         [SwaggerResponse(200, Type = typeof(IEnumerable<BoardColumnBody>))]
 
@@ -72,6 +73,68 @@ namespace old_planner_api.src.Web.Controllers
             var columns = await _boardRepository.GetBoardColumns(boardId);
             var result = columns.Select(e => e.ToBoardColumnBody());
             return Ok(result);
+        }
+
+        [HttpGet("board/members"), Authorize]
+        [SwaggerOperation("Получить список участников доски")]
+        [SwaggerResponse(200, Type = typeof(IEnumerable<ProfileBody>))]
+        public async Task<IActionResult> GetBoardMembers(
+            [FromQuery, Required] Guid boardId,
+            [FromQuery] int count = 1,
+            [FromQuery] int offset = 0
+        )
+        {
+            var boardMembers = await _boardRepository.GetBoardMembers(boardId, count, offset);
+            var result = boardMembers.Select(e => e.ToProfileBody());
+            return Ok(result);
+        }
+
+        [HttpPost("board/member"), Authorize]
+        [SwaggerOperation("Добавить участника доски")]
+        [SwaggerResponse(200)]
+        [SwaggerResponse(400)]
+        [SwaggerResponse(404)]
+
+        public async Task<IActionResult> AddMember(
+            [FromHeader(Name = nameof(HttpRequestHeaders.Authorization))] string token,
+            [FromQuery, Required] Guid boardId,
+            [FromQuery] string email
+        )
+        {
+            var tokenPayload = _jwtService.GetTokenInfo(token);
+            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenPayload.UserId, boardId);
+            if (boardMember == null)
+                return Forbid();
+
+            var user = await _userRepository.GetAsync(email);
+            if (user == null)
+                return NotFound();
+
+            var result = await _boardRepository.AddBoardMember(user, boardId);
+            return result == null ? BadRequest() : Ok();
+        }
+
+        [HttpPost("board/column"), Authorize]
+        [SwaggerOperation("Создать колонку")]
+        [SwaggerResponse(200)]
+
+        public async Task<IActionResult> AddColumn(
+            [FromHeader(Name = nameof(HttpRequestHeaders.Authorization))] string token,
+            [FromQuery, Required] Guid boardId,
+            [FromQuery, Required] string name
+        )
+        {
+            var tokenPayload = _jwtService.GetTokenInfo(token);
+            var boardMember = await _boardRepository.GetBoardMemberAsync(tokenPayload.UserId, boardId);
+            if (boardMember == null)
+                return Forbid();
+
+            var board = await _boardRepository.GetAsync(boardId);
+            if (board == null)
+                return BadRequest();
+
+            var result = await _boardRepository.AddBoardColumn(board, name);
+            return result == null ? BadRequest() : Ok();
         }
     }
 }

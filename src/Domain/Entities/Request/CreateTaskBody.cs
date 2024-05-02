@@ -18,6 +18,9 @@ namespace old_planner_api.src.Domain.Entities.Request
         [EnumDataType(typeof(TaskState))]
         public TaskState Status { get; set; }
 
+        [EnumDataType(typeof(TaskType))]
+        public TaskType Type { get; set; }
+
         [DataType(DataType.DateTime)]
         public string? StartDate { get; set; }
 

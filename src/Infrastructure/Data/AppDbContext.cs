@@ -22,21 +22,19 @@ namespace old_planner_api.src.Infrastructure.Data
         public DbSet<Board> Boards { get; set; }
         public DbSet<BoardMember> BoardMembers { get; set; }
         public DbSet<BoardColumn> BoardColumns { get; set; }
-        public DbSet<TaskChatMessage> TaskChatMessages { get; set; }
-        public DbSet<TaskChat> TaskChats { get; set; }
-        public DbSet<TaskChatMembership> TaskChatMemberships { get; set; }
+        public DbSet<BoardColumnMember> ColumnMembers { get; set; }
         public DbSet<Chat> Chats { get; set; }
         public DbSet<ChatMembership> ChatMemberships { get; set; }
+        public DbSet<BoardColumnTask> BoardColumnTasks { get; set; }
+        public DbSet<TaskPerformer> TaskPerformers { get; set; }
         public DbSet<UserSession> UserSessions { get; set; }
         public DbSet<UserChatSession> UserChatSessions { get; set; }
-        public DbSet<UserTaskChatSession> UserTaskChatSessions { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             var connectionString = _config.GetConnectionString("DefaultConnection");
             optionsBuilder.UseNpgsql(connectionString);
-            // optionsBuilder.EnableSensitiveDataLogging();
             base.OnConfiguring(optionsBuilder);
         }
 
@@ -46,6 +44,24 @@ namespace old_planner_api.src.Infrastructure.Data
             {
                 e.BoardId,
                 e.UserId
+            });
+
+            modelBuilder.Entity<BoardColumnMember>().HasKey(e => new
+            {
+                e.UserId,
+                e.ColumnId
+            });
+
+            modelBuilder.Entity<BoardColumnTask>().HasKey(e => new
+            {
+                e.TaskId,
+                e.ColumnId
+            });
+
+            modelBuilder.Entity<TaskPerformer>().HasKey(e => new
+            {
+                e.PerformerId,
+                e.TaskId
             });
 
             base.OnModelCreating(modelBuilder);

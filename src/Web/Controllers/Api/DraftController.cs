@@ -88,7 +88,7 @@ namespace old_planner_api.src.Web.Controllers
             if (boardMember == null)
                 return Forbid();
 
-            var tasks = await _taskRepository.GetAllDrafts(boardId, tokenInfo.UserId);
+            var tasks = await _taskRepository.GetAll(boardId, tokenInfo.UserId);
             var result = tasks.Select(e => e.ToTaskBody());
             return Ok(result);
         }
@@ -101,7 +101,8 @@ namespace old_planner_api.src.Web.Controllers
 
         public async Task<IActionResult> ConvertDraftToTask(
             [FromQuery, Required] Guid boardId,
-            Guid draftId,
+            [FromQuery, Required] Guid draftId,
+            [FromQuery, Required] Guid columnId,
             [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
         )
         {
@@ -110,8 +111,12 @@ namespace old_planner_api.src.Web.Controllers
             if (boardMember == null)
                 return Forbid();
 
+            var column = await _boardRepository.GetBoardColumn(columnId);
+            if (column == null)
+                return BadRequest();
+
             var user = await _userRepository.GetAsync(tokenInfo.UserId);
-            var result = await _taskRepository.ConvertDraftToTask(draftId, user);
+            var result = await _taskRepository.ConvertDraftToTask(draftId, user, column);
             return result == null ? BadRequest() : Ok(result.ToTaskBody());
         }
 

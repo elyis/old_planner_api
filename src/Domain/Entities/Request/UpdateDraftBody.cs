@@ -12,7 +12,7 @@ namespace old_planner_api.src.Domain.Entities.Request
 
         [Required]
         public string Description { get; set; }
-        
+
         [RegularExpression("^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$")]
         public string? HexColor { get; set; }
 
@@ -20,6 +20,6 @@ namespace old_planner_api.src.Domain.Entities.Request
         public string? EndDate { get; set; }
 
         [Required]
-        public Guid? ModifiedTaskId { get; set; }  
+        public Guid? ModifiedTaskId { get; set; }
     }
 }

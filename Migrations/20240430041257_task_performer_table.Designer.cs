@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using old_planner_api.src.Infrastructure.Data;
@@ -11,9 +12,11 @@ using old_planner_api.src.Infrastructure.Data;
 namespace old_planner_api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240430041257_task_performer_table")]
+    partial class task_performer_table
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -221,6 +224,9 @@ namespace old_planner_api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("ColumnId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAtDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -264,6 +270,8 @@ namespace old_planner_api.Migrations
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ColumnId");
 
                     b.HasIndex("CreatorId");
 
@@ -433,7 +441,7 @@ namespace old_planner_api.Migrations
                         .IsRequired();
 
                     b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "Task")
-                        .WithMany("Columns")
+                        .WithMany()
                         .HasForeignKey("TaskId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -522,6 +530,12 @@ namespace old_planner_api.Migrations
 
             modelBuilder.Entity("old_planner_api.src.Domain.Models.TaskModel", b =>
                 {
+                    b.HasOne("old_planner_api.src.Domain.Models.BoardColumn", "Column")
+                        .WithMany()
+                        .HasForeignKey("ColumnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("old_planner_api.src.Domain.Models.UserModel", "Creator")
                         .WithMany()
                         .HasForeignKey("CreatorId")
@@ -531,6 +545,8 @@ namespace old_planner_api.Migrations
                     b.HasOne("old_planner_api.src.Domain.Models.TaskModel", "DraftOfTask")
                         .WithMany()
                         .HasForeignKey("DraftOfTaskId");
+
+                    b.Navigation("Column");
 
                     b.Navigation("Creator");
 
@@ -614,8 +630,6 @@ namespace old_planner_api.Migrations
                 {
                     b.Navigation("Chat")
                         .IsRequired();
-
-                    b.Navigation("Columns");
 
                     b.Navigation("DeletedTask");
                 });

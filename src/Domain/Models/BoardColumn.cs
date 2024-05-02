@@ -9,6 +9,7 @@ namespace old_planner_api.src.Domain.Models
 
         public Board Board { get; set; }
         public Guid BoardId { get; set; }
+        public List<BoardColumnMember> Members { get; set; } = new();
 
         public BoardColumnBody ToBoardColumnBody()
         {

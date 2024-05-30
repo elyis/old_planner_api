@@ -20,7 +20,8 @@ namespace old_planner_api.src.Infrastructure.Repository
         (
             CreateTaskBody taskBody,
             BoardColumn column,
-            UserModel creator
+            UserModel creator,
+            List<ChatMessage> messages
         )
         {
             var task = new TaskModel
@@ -37,7 +38,15 @@ namespace old_planner_api.src.Infrastructure.Repository
                 Type = taskBody.Type.ToString(),
             };
 
-            return await AddTaskAsync(task, creator, column);
+            var setMessages = messages.Distinct().ToList();
+            var taskAttachedMessages = setMessages.Select(e => new TaskAttachedMessage
+            {
+                Message = e,
+                Task = task
+            });
+
+
+            return await AddTaskAsync(task, creator, column, taskAttachedMessages);
         }
 
         public async Task<TaskModel?> AddAsync
@@ -45,6 +54,7 @@ namespace old_planner_api.src.Infrastructure.Repository
             CreateDraftBody draftBody,
             BoardColumn column,
             UserModel creator,
+            List<ChatMessage> messages,
             TaskModel? parentTask
         )
         {
@@ -63,14 +73,23 @@ namespace old_planner_api.src.Infrastructure.Repository
                 Type = draftBody.Type.ToString(),
             };
 
-            return await AddTaskAsync(task, creator, column);
+            var setMessages = messages.Distinct().ToList();
+            var taskAttachedMessages = setMessages.Select(e => new TaskAttachedMessage
+            {
+                Message = e,
+                Task = task
+            });
+
+            return await AddTaskAsync(task, creator, column, taskAttachedMessages);
         }
 
         public async Task<IEnumerable<TaskModel>> GetAll(Guid columnId, bool isDraft = false)
         {
             var result = await _context.BoardColumnTasks
                 .Include(e => e.Task)
-                .ThenInclude(e => e.Chat)
+                    .ThenInclude(e => e.Chat)
+                .Include(e => e.Task)
+                    .ThenInclude(e => e.AttachedMessages)
                 .Where(e => e.ColumnId == columnId && e.Task.IsDraft == isDraft).ToListAsync();
 
             return result.Select(e => e.Task);
@@ -84,8 +103,11 @@ namespace old_planner_api.src.Infrastructure.Repository
             var statusString = status.ToString();
             var tasks = await _context.BoardColumnTasks
                 .Include(e => e.Task)
-                .ThenInclude(e => e.Chat)
-                .Where(e => e.ColumnId == columnId && e.Task.IsDraft == isDraft && e.Task.Status == statusString).ToListAsync();
+                    .ThenInclude(e => e.Chat)
+                .Include(e => e.Task)
+                    .ThenInclude(e => e.AttachedMessages)
+                .Where(e => e.ColumnId == columnId && e.Task.IsDraft == isDraft && e.Task.Status == statusString)
+                .ToListAsync();
 
             var result = tasks.Select(e => e.Task);
 
@@ -96,7 +118,9 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             var result = await _context.BoardColumnTasks
                 .Include(e => e.Task)
-                .ThenInclude(e => e.Chat)
+                    .ThenInclude(e => e.Chat)
+                .Include(e => e.Task)
+                    .ThenInclude(e => e.AttachedMessages)
                 .Where(e => e.ColumnId == columnId).ToListAsync();
 
             return result.Select(e => e.Task);
@@ -104,6 +128,7 @@ namespace old_planner_api.src.Infrastructure.Repository
 
         public async Task<TaskModel?> GetAsync(Guid id, bool isDraft)
             => await _context.Tasks
+                .Include(e => e.AttachedMessages)
                 .FirstOrDefaultAsync(e => e.Id == id && e.IsDraft == isDraft);
 
         public async Task<bool> RemoveAsync(Guid id, bool isDraft)
@@ -121,7 +146,9 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             var boardColumnTask = await _context.BoardColumnTasks
                 .Include(e => e.Task)
-                .ThenInclude(e => e.DraftOfTask)
+                    .ThenInclude(e => e.AttachedMessages)
+                .Include(e => e.Task)
+                    .ThenInclude(e => e.DraftOfTask)
                 .FirstOrDefaultAsync(e =>
                     e.TaskId == id && e.Task.IsDraft && e.ColumnId == column.Id
                 );
@@ -162,7 +189,7 @@ namespace old_planner_api.src.Infrastructure.Repository
                     IsDraft = false,
                     Type = oldTask.Type
                 };
-                newTask = await AddTaskAsync(newTask, user, column);
+                newTask = await AddTaskAsync(newTask, user, column, oldTask.AttachedMessages);
             }
 
             _context.Tasks.Remove(oldTask);
@@ -202,7 +229,7 @@ namespace old_planner_api.src.Infrastructure.Repository
             DateTime.TryParse(dateTimeString, out var date) ? date.ToUniversalTime() : null;
 
 
-        private async Task<TaskModel?> AddTaskAsync(TaskModel task, UserModel user, BoardColumn column)
+        private async Task<TaskModel?> AddTaskAsync(TaskModel task, UserModel user, BoardColumn column, IEnumerable<TaskAttachedMessage> taskAttachedMessages)
         {
             if (task == null)
                 return null;
@@ -217,8 +244,11 @@ namespace old_planner_api.src.Infrastructure.Repository
                     new() {
                         User = user
                     }
-                }
+                },
             };
+
+            task.AttachedMessages = taskAttachedMessages.ToList();
+
             var boardColumnTask = new BoardColumnTask
             {
                 Column = column,
@@ -255,8 +285,11 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             var result = await _context.BoardColumnTasks
                 .Include(e => e.Task)
-                .ThenInclude(e => e.Chat)
-                .Where(e => e.ColumnId == columnId && e.Task.IsDraft && e.Task.CreatorId == userId).ToListAsync();
+                    .ThenInclude(e => e.Chat)
+                .Include(e => e.Task)
+                    .ThenInclude(e => e.AttachedMessages)
+                .Where(e => e.ColumnId == columnId && e.Task.IsDraft && e.Task.CreatorId == userId)
+                .ToListAsync();
 
             return result.Select(e => e.Task);
         }

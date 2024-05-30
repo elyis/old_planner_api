@@ -21,5 +21,6 @@ namespace old_planner_api.src.Domain.Entities.Request
         public string? EndDate { get; set; }
 
         public Guid? ModifiedTaskId { get; set; }
+        public List<Guid> MessageIds { get; set; } = new();
     }
 }

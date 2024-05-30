@@ -34,7 +34,7 @@ namespace old_planner_api.src.Domain.Models
         public Guid CreatorId { get; set; }
 
         public Chat Chat { get; set; }
-
+        public List<TaskAttachedMessage> AttachedMessages { get; set; } = new();
 
         public TaskBody ToTaskBody()
         {

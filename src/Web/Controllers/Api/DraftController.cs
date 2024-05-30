@@ -16,18 +16,21 @@ namespace old_planner_api.src.Web.Controllers
     {
         private readonly ITaskRepository _taskRepository;
         private readonly IBoardRepository _boardRepository;
+        private readonly IChatRepository _chatRepository;
         private readonly IUserRepository _userRepository;
         private readonly IJwtService _jwtService;
 
         public DraftController(
             ITaskRepository taskRepository,
             IBoardRepository boardRepository,
+            IChatRepository chatRepository,
             IUserRepository userRepository,
             IJwtService jwtService
         )
         {
             _taskRepository = taskRepository;
             _boardRepository = boardRepository;
+            _chatRepository = chatRepository;
             _userRepository = userRepository;
             _jwtService = jwtService;
         }
@@ -67,8 +70,9 @@ namespace old_planner_api.src.Web.Controllers
                     return BadRequest("taskId is not found");
             }
 
+            var messages = await _chatRepository.GetMessages(draftBody.MessageIds);
             var user = await _userRepository.GetAsync(tokenInfo.UserId);
-            var result = await _taskRepository.AddAsync(draftBody, column, user, draftOfTask);
+            var result = await _taskRepository.AddAsync(draftBody, column, user, messages, draftOfTask);
             return result == null ? BadRequest() : Ok(result.ToTaskBody());
         }
 

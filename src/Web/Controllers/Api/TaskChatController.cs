@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Net.WebSockets;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MimeDetective;
@@ -25,6 +26,7 @@ namespace old_planner_api.src.Web.Controllers
         private readonly IJwtService _jwtService;
         private readonly IFileUploaderService _fileUploaderService;
         private readonly ITaskChatConnectionService _chatConnectionService;
+        private readonly INotificationService _notificationService;
         private readonly IChatHandler _chatHandler;
         private readonly IChatRepository _chatRepository;
         private readonly IUserRepository _userRepository;
@@ -34,6 +36,7 @@ namespace old_planner_api.src.Web.Controllers
         public TaskChatController(
             IJwtService jwtService,
             ITaskChatConnectionService taskChatService,
+            INotificationService notificationService,
             IChatRepository chatRepository,
             IUserRepository userRepository,
             IChatHandler taskChatHandler,
@@ -43,6 +46,7 @@ namespace old_planner_api.src.Web.Controllers
         {
             _jwtService = jwtService;
             _chatConnectionService = taskChatService;
+            _notificationService = notificationService;
             _chatRepository = chatRepository;
             _userRepository = userRepository;
             _chatHandler = taskChatHandler;
@@ -149,6 +153,7 @@ namespace old_planner_api.src.Web.Controllers
             [FromHeader, Required] Guid chatId
         )
         {
+
             var userIdentifiers = identifiers.ToHashSet().ToList();
             var users = await _userRepository.GetUsersAsync(userIdentifiers);
 
@@ -159,6 +164,11 @@ namespace old_planner_api.src.Web.Controllers
             if (users.Count != userIdentifiers.Count)
                 return BadRequest();
 
+            var tokenPayload = _jwtService.GetTokenInfo(token);
+            var taskCreator = await _userRepository.GetAsync(tokenPayload.UserId);
+            if (taskCreator == null)
+                return Unauthorized();
+
             var notAddedUsers = new List<string>();
             foreach (var user in users)
             {
@@ -168,6 +178,18 @@ namespace old_planner_api.src.Web.Controllers
                     notAddedUsers.Add(user.Identifier);
                 else
                     await _chatRepository.CreateUserChatSessionAsync(userSessions, result, result.DateLastViewing);
+
+                var message = new CreateMessageBody
+                {
+                    Content = "Вы были выбраны исполнителем задачи",
+                    Type = MessageType.Text
+                };
+
+                var chatMessage = await _chatRepository.AddMessageAsync(message, chat, taskCreator);
+                var messageBody = chatMessage.ToMessageBody();
+
+                var bytes = SerializeObject(messageBody);
+                await _notificationService.SendMessageToAllUserSessions(user.Id, bytes);
             }
 
             return Ok(notAddedUsers);
@@ -290,6 +312,13 @@ namespace old_planner_api.src.Web.Controllers
 
             var fileExtension = Path.GetExtension(filename);
             return File(bytes, $"image/{fileExtension}", filename);
+        }
+
+        private byte[] SerializeObject<T>(T obj)
+        {
+            var serializableString = JsonConvert.SerializeObject(obj);
+            var bytes = Encoding.UTF8.GetBytes(serializableString);
+            return bytes;
         }
     }
 }

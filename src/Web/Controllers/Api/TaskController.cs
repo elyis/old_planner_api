@@ -61,8 +61,10 @@ namespace old_planner_api.src.Web.Controllers
             if (column == null)
                 return NotFound();
 
+            var messages = await _chatRepository.GetMessages(taskBody.MessageIds);
+
             var user = await _userRepository.GetAsync(tokenInfo.UserId);
-            var result = await _taskRepository.AddAsync(taskBody, column, user);
+            var result = await _taskRepository.AddAsync(taskBody, column, user, messages);
             if (result == null)
                 return BadRequest();
 

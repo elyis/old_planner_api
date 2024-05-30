@@ -16,6 +16,7 @@ namespace old_planner_api.src.Domain.Models
 
         public Guid ChatId { get; set; }
         public Chat Chat { get; set; }
+        public List<TaskAttachedMessage> Tasks { get; set; } = new();
 
         public CreateMessageBody ToCreateMessageBody()
         {

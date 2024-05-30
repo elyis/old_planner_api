@@ -6,8 +6,8 @@ namespace old_planner_api.src.Domain.IRepository
 {
     public interface ITaskRepository
     {
-        Task<TaskModel?> AddAsync(CreateTaskBody taskBody, BoardColumn column, UserModel creator);
-        Task<TaskModel?> AddAsync(CreateDraftBody draftBody, BoardColumn column, UserModel creator, TaskModel? parentTask);
+        Task<TaskModel?> AddAsync(CreateTaskBody taskBody, BoardColumn column, UserModel creator, List<ChatMessage> messages);
+        Task<TaskModel?> AddAsync(CreateDraftBody draftBody, BoardColumn column, UserModel creator, List<ChatMessage> messages, TaskModel? parentTask);
         Task<TaskModel?> GetAsync(Guid id, bool isDraft);
         Task<bool> RemoveAsync(Guid id, bool isDraft);
         Task<IEnumerable<TaskModel>> GetAll(Guid columnId, TaskState? status, bool isDraft = false);

@@ -30,6 +30,7 @@ namespace old_planner_api.src.Infrastructure.Data
         public DbSet<UserSession> UserSessions { get; set; }
         public DbSet<UserChatSession> UserChatSessions { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<TaskAttachedMessage> TaskAttachedMessages { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -62,6 +63,12 @@ namespace old_planner_api.src.Infrastructure.Data
             {
                 e.PerformerId,
                 e.TaskId
+            });
+
+            modelBuilder.Entity<TaskAttachedMessage>().HasKey(e => new
+            {
+                e.TaskId,
+                e.MessageId
             });
 
             base.OnModelCreating(modelBuilder);

@@ -280,5 +280,12 @@ namespace old_planner_api.src.Infrastructure.Repository
         {
             return await _context.Chats.FirstOrDefaultAsync(e => e.TaskId == taskId);
         }
+
+        public async Task<List<ChatMessage>> GetMessages(IEnumerable<Guid> messageIds)
+        {
+            return await _context.ChatMessages
+                .Where(e => messageIds.Contains(e.Id))
+                .ToListAsync();
+        }
     }
 }

@@ -16,5 +16,7 @@ namespace old_planner_api.src.Domain.Entities.Response
         public string? StartDate { get; set; }
         public string? EndDate { get; set; }
         public Guid ChatId { get; set; }
+
+        public List<MessageBody> Messages { get; set; } = new();
     }
 }

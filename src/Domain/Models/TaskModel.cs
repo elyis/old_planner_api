@@ -48,7 +48,8 @@ namespace old_planner_api.src.Domain.Models
                 Status = Enum.Parse<TaskState>(Status),
                 StartDate = StartDate?.ToString("s"),
                 EndDate = EndDate?.ToString("s"),
-                ChatId = Chat.Id
+                ChatId = Chat.Id,
+                Messages = AttachedMessages.Select(e => e.Message.ToMessageBody()).ToList()
             };
         }
     }

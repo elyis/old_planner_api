@@ -379,5 +379,19 @@ namespace old_planner_api.src.Infrastructure.Repository
             await _context.BoardColumnTasks.AddAsync(columnTask);
             await _context.SaveChangesAsync();
         }
+
+        public async Task<bool> RemoveTaskFromColumn(Guid taskId, Guid columnId)
+        {
+            var columnTask = await _context.BoardColumnTasks
+                .FirstOrDefaultAsync(e => e.ColumnId == columnId && e.TaskId == taskId);
+
+            if (columnTask != null)
+            {
+                _context.BoardColumnTasks.Remove(columnTask);
+                await _context.SaveChangesAsync();
+            }
+
+            return true;
+        }
     }
 }

@@ -23,5 +23,6 @@ namespace old_planner_api.src.Domain.IRepository
         Task<IEnumerable<TaskPerformer>> GetTaskPerformers(IEnumerable<Guid> performerIds, Guid taskId, int count, int offset);
         Task<IEnumerable<TaskPerformer>> GetTaskPerformers(Guid taskId, int count, int offset);
         Task AddTaskToColumn(TaskModel tasks, BoardColumn column);
+        Task<bool> RemoveTaskFromColumn(Guid taskId, Guid columnId);
     }
 }

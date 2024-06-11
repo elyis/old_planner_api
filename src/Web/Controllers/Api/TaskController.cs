@@ -285,6 +285,41 @@ namespace old_planner_api.src.Web.Controllers
             return Ok();
         }
 
+        [HttpDelete("task/column"), Authorize]
+        [SwaggerOperation("Удалить задачу из колонки")]
+        [SwaggerResponse(204)]
+        [SwaggerResponse(400)]
+        [SwaggerResponse(403)]
+        public async Task<IActionResult> RemoveTaskFromColumn(
+            [FromQuery, Required] Guid boardId,
+            [FromQuery, Required] Guid columnId,
+            [FromQuery, Required] Guid taskId,
+            [FromHeader(Name = nameof(HttpRequestHeader.Authorization))] string token
+        )
+        {
+            var tokenPayload = _jwtService.GetTokenInfo(token);
+
+            var authorizeCheck = await AuthorizeCheck(boardId, token);
+            if (authorizeCheck is ForbidResult)
+                return authorizeCheck;
+
+            var column = await _boardRepository.GetBoardColumn(columnId);
+            if (column == null)
+                return BadRequest();
+
+            var userBoards = await _boardRepository.GetAll(tokenPayload.UserId);
+            var boardIds = userBoards.Select(e => e.Id);
+            if (!boardIds.Contains(boardId))
+                return Forbid();
+
+            var task = await _taskRepository.GetAsync(taskId, false);
+            if (task == null)
+                return BadRequest();
+
+            await _taskRepository.RemoveTaskFromColumn(taskId, columnId);
+            return NoContent();
+        }
+
         private async Task<IActionResult> AuthorizeCheck(Guid boardId, string token)
         {
             var tokenInfo = _jwtService.GetTokenInfo(token);

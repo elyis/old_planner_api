@@ -152,9 +152,31 @@ namespace old_planner_api.src.Infrastructure.Repository
                .ToListAsync();
         }
 
-        public async Task<UserSession?> GetSessionAsync(Guid sessionId)
+        public async Task<UserSession?> GetSessionAsync(Guid sessionId) => await _context.UserSessions.FirstOrDefaultAsync(e => e.Id == sessionId);
+
+        public async Task<List<UserMailCredentials>> GetUserMailCredentials(Guid userId) => await _context.UserMailCredentials.Where(e => e.UserId == userId).ToListAsync();
+
+        public async Task<UserMailCredentials?> AddUserMailCredential(string email, string access_token, string refresh_token, UserModel user, EmailProvider emailProvider)
         {
-            return await _context.UserSessions.FirstOrDefaultAsync(e => e.Id == sessionId);
+            var emailCredentials = await GetUserMailCredential(email);
+            if (emailCredentials != null)
+                return null;
+
+            emailCredentials = new UserMailCredentials
+            {
+                AccessToken = access_token,
+                Email = email,
+                EmailProvider = emailProvider.ToString(),
+                RefreshToken = refresh_token,
+                User = user
+            };
+
+            emailCredentials = (await _context.UserMailCredentials.AddAsync(emailCredentials))?.Entity;
+            await _context.SaveChangesAsync();
+
+            return emailCredentials;
         }
+
+        public async Task<UserMailCredentials?> GetUserMailCredential(string email) => await _context.UserMailCredentials.FirstOrDefaultAsync(e => e.Email == email);
     }
 }

@@ -23,6 +23,7 @@ namespace old_planner_api.src.Infrastructure.Data
         public DbSet<BoardMember> BoardMembers { get; set; }
         public DbSet<BoardColumn> BoardColumns { get; set; }
         public DbSet<BoardColumnMember> ColumnMembers { get; set; }
+        public DbSet<UserMailCredentials> UserMailCredentials { get; set; }
         public DbSet<Chat> Chats { get; set; }
         public DbSet<ChatMembership> ChatMemberships { get; set; }
         public DbSet<BoardColumnTask> BoardColumnTasks { get; set; }

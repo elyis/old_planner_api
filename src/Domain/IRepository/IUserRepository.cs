@@ -21,5 +21,8 @@ namespace old_planner_api.src.Domain.IRepository
         Task<string?> UpdateTokenAsync(string refreshToken, Guid sessionId, TimeSpan? duration = null);
         Task<UserSession?> GetUserSessionByTokenAndUser(string refreshTokenHash);
         Task<UserModel?> UpdateProfileIconAsync(Guid userId, string filename);
+        Task<List<UserMailCredentials>> GetUserMailCredentials(Guid userId);
+        Task<UserMailCredentials?> AddUserMailCredential(string email, string access_token, string refresh_token, UserModel user, EmailProvider emailProvider);
+        Task<UserMailCredentials?> GetUserMailCredential(string email);
     }
 }

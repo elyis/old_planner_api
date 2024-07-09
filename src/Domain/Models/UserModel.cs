@@ -28,6 +28,7 @@ namespace old_planner_api.src.Domain.Models
 
         public List<ChatMembership> ChatMemberships { get; set; } = new();
         public List<UserSession> Sessions { get; set; } = new();
+        public List<UserMailCredentials> UserMailCredentials { get; set; } = new();
 
         public ProfileBody ToProfileBody()
         {

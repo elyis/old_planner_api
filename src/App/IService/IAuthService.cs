@@ -11,5 +11,6 @@ namespace old_planner_api.src.App.IService
         Task<IActionResult> RestoreToken(string refreshToken, string deviceId, DeviceTypeId deviceTypeId);
         Task<bool> AccountIsExist(string identifier);
         Task<bool> AccountAuthorizedByProvider(string identifier, AuthenticationProviderType provider);
+        Task<IActionResult> CreateMailCredentials(string email, string access_token, string refresh_token, EmailProvider provider);
     }
 }

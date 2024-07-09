@@ -81,6 +81,9 @@ namespace old_planner_api
                 {
                     options.ClientSecret = googleSettings.ClientSecret;
                     options.ClientId = googleSettings.ClientId;
+                    options.Scope.Add("https://mail.google.com");
+                    options.SaveTokens = true;
+                    options.AccessType = "offline";
                 })
                 .AddJwtBearer(options =>
                 {
@@ -130,6 +133,7 @@ namespace old_planner_api
             services.AddSingleton<IMainMonitoringService, MainMonitoringService>();
             services.AddSingleton<INotificationService, WsNotificationService>();
             services.AddSingleton<IEmailService, EmailService>();
+            services.AddSingleton<IGoogleTokenService, GoogleTokenService>(sp => new GoogleTokenService(googleSettings.ClientId, googleSettings.ClientSecret));
 
             services.AddSingleton(fileInspector);
             services.AddSingleton(jwtSettings);

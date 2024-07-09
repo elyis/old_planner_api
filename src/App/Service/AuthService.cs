@@ -68,6 +68,16 @@ namespace old_planner_api.src.App.Service
             return new OkObjectResult(tokenPair);
         }
 
+        public async Task<IActionResult> CreateMailCredentials(string email, string access_token, string refresh_token, EmailProvider provider)
+        {
+            var user = await _userRepository.GetAsync(email);
+            if (user == null)
+                return new NotFoundResult();
+
+            var result = await _userRepository.AddUserMailCredential(email, access_token, refresh_token, user, provider);
+            return result == null ? new ConflictResult() : new OkResult();
+        }
+
         public async Task<IActionResult> SignUp(SignUpBody body, string rolename, AuthenticationProviderType provider)
         {
             var isValidIdentifier = IsValidAuthenticationIdentifier(body.Identifier, body.Method);

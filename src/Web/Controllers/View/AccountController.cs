@@ -4,10 +4,15 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using old_planner_api.src.App.IService;
 using old_planner_api.src.Domain.Entities.Request;
+using old_planner_api.src.Domain.Entities.Response;
 using old_planner_api.src.Domain.Enums;
+using old_planner_api.src.Domain.IRepository;
+using Swashbuckle.AspNetCore.Annotations;
+using webApiTemplate.src.App.IService;
 using webApiTemplate.src.App.Provider;
 
 namespace old_planner_api.src.Web.Controllers.View
@@ -17,15 +22,27 @@ namespace old_planner_api.src.Web.Controllers.View
     {
         private readonly ILogger<AccountController> _logger;
         private readonly IAuthService _authService;
+        private readonly IJwtService _jwtService;
+        private readonly IUserRepository _userRepository;
+        private readonly IEmailService _emailService;
+        private readonly IGoogleTokenService _googleTokenService;
 
 
         public AccountController(
             ILogger<AccountController> logger,
-            IAuthService authService
+            IAuthService authService,
+            IJwtService jwtService,
+            IUserRepository userRepository,
+            IEmailService emailService,
+            IGoogleTokenService googleTokenService
         )
         {
             _logger = logger;
             _authService = authService;
+            _jwtService = jwtService;
+            _userRepository = userRepository;
+            _emailService = emailService;
+            _googleTokenService = googleTokenService;
         }
 
         [HttpGet("google-login")]
@@ -33,13 +50,15 @@ namespace old_planner_api.src.Web.Controllers.View
         {
             var properties = new AuthenticationProperties
             {
-                RedirectUri = Url.Action("GoogleResponse")
+                RedirectUri = Url.Action("GoogleResponse"),
             };
 
 
             var deviceTypeId = GetDeviceType(deviceId);
             if (deviceTypeId == null)
                 return BadRequest();
+
+            properties.SetParameter("access_type", "offline");
 
             HttpContext.Session.SetString("deviceId", deviceId);
             HttpContext.Session.SetString("deviceTypeId", deviceTypeId.ToString());
@@ -55,16 +74,19 @@ namespace old_planner_api.src.Web.Controllers.View
                 return Unauthorized();
 
             var claims = result.Principal.Claims;
-
             var email = claims.First(e => e.Type == ClaimTypes.Email).Value;
             var name = claims.First(e => e.Type == ClaimTypes.Name).Value;
             var nameIdentifier = claims.First(e => e.Type == ClaimTypes.NameIdentifier).Value;
-            _logger.LogCritical(nameIdentifier);
 
             var session = HttpContext.Session;
             var deviceTypeId = session.GetString("deviceTypeId");
             var deviceId = session.GetString("deviceId");
 
+            var access_token = result.Properties.GetTokenValue("access_token");
+            var refreshToken = result.Properties.GetTokenValue("refresh_token");
+
+            if (refreshToken == null || access_token == null)
+                return BadRequest("Очистите кэш");
 
             var isExist = await _authService.AccountIsExist(email);
             if (isExist)
@@ -73,6 +95,7 @@ namespace old_planner_api.src.Web.Controllers.View
                 if (!accountCreatedByGoogle)
                     return Conflict();
 
+                var mailCreadentials = await _authService.CreateMailCredentials(email, access_token, refreshToken, EmailProvider.Gmail);
                 var signInBody = new SignInBody
                 {
                     Identifier = email,
@@ -82,7 +105,7 @@ namespace old_planner_api.src.Web.Controllers.View
                     DeviceTypeId = Enum.Parse<DeviceTypeId>(deviceTypeId)
                 };
 
-                var signInResponse = await _authService.SignIn(signInBody, AuthenticationProviderType.Default);
+                var signInResponse = await _authService.SignIn(signInBody, AuthenticationProviderType.Google);
                 return signInResponse;
             }
 
@@ -97,9 +120,99 @@ namespace old_planner_api.src.Web.Controllers.View
             };
 
             var response = await _authService.SignUp(signUpBody, UserRole.Common.ToString(), AuthenticationProviderType.Google);
+            if (response is OkObjectResult objectResult)
+            {
+                var mailCreadentials = await _authService.CreateMailCredentials(email, access_token, refreshToken, EmailProvider.Gmail);
+            }
             return response;
         }
 
+
+        [HttpGet("emails"), Authorize]
+        [SwaggerOperation("Получить список сообщений с почты")]
+        [SwaggerResponse(200, "Успешно", Type = typeof(List<EmailMessageInfo>))]
+        [SwaggerResponse(400, "Некорректные данные")]
+        [SwaggerResponse(401, "Неавторизованный доступ")]
+        [SwaggerResponse(404, "Почтовый аккаунт не подключен")]
+        public async Task<IActionResult> GetEmails(
+            [FromHeader(Name = "Authorization")] string token,
+            [FromQuery] int offset = 0,
+            [FromQuery] int count = 10,
+            [FromQuery] EmailProvider emailProvider = EmailProvider.Gmail)
+        {
+            var userId = _jwtService.GetTokenInfo(token).UserId;
+            var mailCreadentials = await _userRepository.GetUserMailCredentials(userId);
+
+            var emailCredentials = mailCreadentials.FirstOrDefault(e => e.EmailProvider == emailProvider.ToString());
+            if (emailCredentials == null)
+                return NotFound();
+
+            var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
+
+            var messages = await _emailService.GetMessages(emailCredentials.Email, googleTokenResponse.AccessToken, emailCredentials.RefreshToken, offset, count);
+            return Ok(messages);
+        }
+
+        [HttpDelete("emails"), Authorize]
+        [SwaggerOperation("Удалить письма по индексам")]
+        [SwaggerResponse(204, "Успешно")]
+        [SwaggerResponse(400, "Некорректные данные")]
+        [SwaggerResponse(401, "Неавторизованный доступ")]
+        [SwaggerResponse(404, "Почтовый аккаунт не подключен")]
+
+        public async Task<IActionResult> RemoveEmails(
+            [FromHeader(Name = "Authorization")] string token,
+            [FromQuery, Required] int[] messageIndexes,
+            [FromQuery] EmailProvider emailProvider = EmailProvider.Gmail)
+        {
+            var userId = _jwtService.GetTokenInfo(token).UserId;
+            var mailCreadentials = await _userRepository.GetUserMailCredentials(userId);
+
+            var emailCredentials = mailCreadentials.FirstOrDefault(e => e.EmailProvider == emailProvider.ToString());
+            if (emailCredentials == null)
+                return NotFound();
+
+            var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
+
+            await _emailService.DeleteMessages(emailCredentials.Email, googleTokenResponse.AccessToken, new List<int>(messageIndexes));
+            return NoContent();
+        }
+
+        [HttpPost("email"), Authorize]
+        [SwaggerOperation("Отправить сообщение на почту")]
+        [SwaggerResponse(200, "Успешно")]
+        [SwaggerResponse(400, "Некорректные данные")]
+        [SwaggerResponse(401, "Неавторизованный доступ")]
+        [SwaggerResponse(404, "Нет подключенных ящиков")]
+        [SwaggerResponse(415, "Неподдерживаемый формат почты")]
+        public async Task<IActionResult> SendMessage(
+            [FromHeader(Name = "Authorization")] string token,
+            [FromBody] CreateEmailMessageBody body)
+        {
+            var userId = _jwtService.GetTokenInfo(token).UserId;
+            var mailCreadentials = await _userRepository.GetUserMailCredentials(userId);
+
+            var senderUser = await _userRepository.GetAsync(userId);
+            var recipientUser = await _userRepository.GetAsync(body.ToEmail);
+            if (recipientUser == null)
+                return NotFound("Почта получателя не найдена");
+
+            var emailCredentials = mailCreadentials.FirstOrDefault();
+            if (emailCredentials == null)
+                return NotFound("Нет подключенных почтовых ящиков");
+
+            string password = emailCredentials.AccessToken;
+            if (emailCredentials.EmailProvider == EmailProvider.Gmail.ToString())
+            {
+                var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
+                password = googleTokenResponse.AccessToken;
+            }
+            else
+                return new UnsupportedMediaTypeResult();
+
+            await _emailService.SendMessage(emailCredentials.Email, senderUser.Nickname, body.ToEmail, recipientUser.Nickname, body.Subject, body.Message, password);
+            return Ok();
+        }
 
         private DeviceTypeId? GetDeviceType(string deviceId)
         {

@@ -7,6 +7,7 @@ namespace old_planner_api.src.Domain.Enums
     public enum AuthenticationProviderType
     {
         Default,
-        Google
+        Google,
+        MailRu
     }
 }

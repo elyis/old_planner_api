@@ -6,6 +6,7 @@ using MimeKit;
 using old_planner_api.src.App.IService;
 using old_planner_api.src.Domain.Entities.Config;
 using old_planner_api.src.Domain.Entities.Response;
+using old_planner_api.src.Domain.Enums;
 
 namespace old_planner_api.src.App.Service
 {
@@ -30,14 +31,19 @@ namespace old_planner_api.src.App.Service
             _logger = logger;
         }
 
-        public async Task<List<EmailMessageInfo>> GetMessages(string email, string access_token, string refresh_token, int offset, int count)
+        public async Task<List<EmailMessageInfo>> GetMessages(string email, string access_token, string refresh_token, int offset, int count, EmailProvider emailProvider)
         {
             var messages = new List<EmailMessageInfo>();
+            string imapServer = "imap.gmail.com";
+            int port = 993;
+
+            if(emailProvider == EmailProvider.MailRu)
+                imapServer = "imap.mail.ru";
 
             using var client = new ImapClient();
             try
             {
-                await ConnectToServer(client, email, access_token);
+                await ConnectToServer(client, email, access_token, imapServer, port);
                 await FetchMessages(client, messages, offset, count);
             }
             catch (Exception ex)
@@ -52,9 +58,9 @@ namespace old_planner_api.src.App.Service
 
             return messages;
         }
-        private async Task ConnectToServer(ImapClient client, string email, string accessToken)
+        private async Task ConnectToServer(ImapClient client, string email, string accessToken, string imapServer, int port)
         {
-            await client.ConnectAsync("imap.gmail.com", 993, SecureSocketOptions.SslOnConnect);
+            await client.ConnectAsync(imapServer, port, SecureSocketOptions.SslOnConnect);
             var oauth2 = new SaslMechanismOAuth2(email, accessToken);
             await client.AuthenticateAsync(oauth2);
             await client.Inbox.OpenAsync(FolderAccess.ReadOnly);
@@ -133,12 +139,18 @@ namespace old_planner_api.src.App.Service
             }
         }
 
-        public async Task DeleteMessages(string email, string accessToken, List<int> messageIndexes)
+        public async Task DeleteMessages(string email, string accessToken, List<int> messageIndexes, EmailProvider emailProvider)
         {
+            string imapServer = "imap.gmail.com";
+            int port = 993;
+
+            if(emailProvider == EmailProvider.MailRu)
+                imapServer = "imap.mail.ru";
+
             using var client = new ImapClient();
             try
             {
-                await ConnectToServer(client, email, accessToken);
+                await ConnectToServer(client, email, accessToken, imapServer, port);
                 await client.Inbox.OpenAsync(FolderAccess.ReadWrite);
 
                 foreach (var messageIndex in messageIndexes)
@@ -168,8 +180,19 @@ namespace old_planner_api.src.App.Service
             string toName,
             string subject,
             string message,
-            string password)
+            string password,
+            EmailProvider emailProvider)
         {
+
+            string smtpServer = "smtp.gmail.com";
+            int port = 587;
+
+            if(emailProvider == EmailProvider.MailRu)
+            {
+                smtpServer = "smtp.mail.ru";
+                port = 465;
+            }
+
             try
             {
                 var emailMessage = new MimeMessage();
@@ -179,7 +202,7 @@ namespace old_planner_api.src.App.Service
                 emailMessage.Body = new TextPart("plain") { Text = message };
 
                 using var client = new SmtpClient();
-                await client.ConnectAsync("smtp.gmail.com", 587, SecureSocketOptions.StartTls);
+                await client.ConnectAsync(smtpServer, port, SecureSocketOptions.StartTls);
                 var oauth2 = new SaslMechanismOAuth2(fromEmail, password);
                 await client.AuthenticateAsync(oauth2);
                 await client.SendAsync(emailMessage);

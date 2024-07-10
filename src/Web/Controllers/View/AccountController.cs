@@ -26,6 +26,7 @@ namespace old_planner_api.src.Web.Controllers.View
         private readonly IUserRepository _userRepository;
         private readonly IEmailService _emailService;
         private readonly IGoogleTokenService _googleTokenService;
+        private readonly IMailRuTokenService _mailRuTokenService;
 
 
         public AccountController(
@@ -34,7 +35,8 @@ namespace old_planner_api.src.Web.Controllers.View
             IJwtService jwtService,
             IUserRepository userRepository,
             IEmailService emailService,
-            IGoogleTokenService googleTokenService
+            IGoogleTokenService googleTokenService,
+            IMailRuTokenService mailRuTokenService
         )
         {
             _logger = logger;
@@ -43,6 +45,20 @@ namespace old_planner_api.src.Web.Controllers.View
             _userRepository = userRepository;
             _emailService = emailService;
             _googleTokenService = googleTokenService;
+            _mailRuTokenService = mailRuTokenService;
+        }
+
+        [HttpGet("mail-login")]
+        public IActionResult MailLogin([FromQuery(Name = "deviceId"), Required] string deviceId)
+        {
+            var authorizationUrl = _mailRuTokenService.GetAuthorizationUrl();
+            var deviceTypeId = GetDeviceType(deviceId);
+            if (deviceTypeId == null)
+                return BadRequest();
+
+            HttpContext.Session.SetString("deviceId", deviceId);
+            HttpContext.Session.SetString("deviceTypeId", deviceTypeId.ToString());
+            return Redirect(authorizationUrl);
         }
 
         [HttpGet("google-login")]
@@ -127,6 +143,65 @@ namespace old_planner_api.src.Web.Controllers.View
             return response;
         }
 
+        [HttpGet("signin-mail")]
+        public async Task<IActionResult> MailResponse(string code)
+        {
+            if (string.IsNullOrEmpty(code))
+                return BadRequest("Authorization code is missing.");
+
+            var tokenPairResponse = await _mailRuTokenService.GetTokenAsync(code);
+            if (tokenPairResponse == null)
+                return BadRequest("Failed to retrieve access token.");
+
+            var session = HttpContext.Session;
+            var deviceTypeId = session.GetString("deviceTypeId");
+            var deviceId = session.GetString("deviceId");
+
+            var userInfo = await _mailRuTokenService.GetUserInfo(tokenPairResponse.AccessToken);
+            if(userInfo == null)
+                return BadRequest("Получить профиль пользователя не получается");
+
+            var isAccountExist = await _authService.AccountIsExist(userInfo.Email);
+            if(!isAccountExist)
+            {
+                var signUpBody = new SignUpBody
+                {
+                    Identifier = userInfo.Email,
+                    Method = AuthenticationMethod.Email,
+                    Nickname = userInfo.Nickname,
+                    Password = Hmac512Provider.Compute(userInfo.FirstName),
+                    DeviceId = deviceId,
+                    DeviceTypeId = Enum.Parse<DeviceTypeId>(deviceTypeId)
+                };
+
+                var response = await _authService.SignUp(signUpBody, UserRole.Common.ToString(), AuthenticationProviderType.MailRu);
+                if (response is OkObjectResult objectResult)
+                {
+                    var mailCreadentials = await _authService.CreateMailCredentials(userInfo.Email, tokenPairResponse.AccessToken, tokenPairResponse.RefreshToken, EmailProvider.MailRu);
+                }
+                return response;
+            }
+            else
+            {
+                var isAccountCreatedByMailRu = await _authService.AccountAuthorizedByProvider(userInfo.Email, AuthenticationProviderType.MailRu);
+                if(isAccountCreatedByMailRu)
+                {
+                    var signInBody = new SignInBody
+                    {
+                        Identifier = userInfo.Email,
+                        Method = AuthenticationMethod.Email,
+                        Password = Hmac512Provider.Compute(userInfo.FirstName),
+                        DeviceId = deviceId,
+                        DeviceTypeId = Enum.Parse<DeviceTypeId>(deviceTypeId)
+                    };
+
+                    var signInResponse = await _authService.SignIn(signInBody, AuthenticationProviderType.MailRu);
+                    return signInResponse;
+                }
+                
+                return Conflict();
+            }
+        }
 
         [HttpGet("emails"), Authorize]
         [SwaggerOperation("Получить список сообщений с почты")]
@@ -142,14 +217,32 @@ namespace old_planner_api.src.Web.Controllers.View
         {
             var userId = _jwtService.GetTokenInfo(token).UserId;
             var mailCreadentials = await _userRepository.GetUserMailCredentials(userId);
+            string refreshToken = "";
+            string accessToken = "";
 
             var emailCredentials = mailCreadentials.FirstOrDefault(e => e.EmailProvider == emailProvider.ToString());
             if (emailCredentials == null)
                 return NotFound();
 
-            var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
+            switch(emailProvider)
+            {
+                case EmailProvider.Gmail:
+                    var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
+                    refreshToken = googleTokenResponse.RefreshToken;
+                    accessToken = googleTokenResponse.AccessToken;
+                    break;
+                
+                case EmailProvider.MailRu:
+                    var mailTokenPair = await _mailRuTokenService.UpdateToken(emailCredentials.RefreshToken);
+                    if(mailTokenPair == null)
+                        return BadRequest();
 
-            var messages = await _emailService.GetMessages(emailCredentials.Email, googleTokenResponse.AccessToken, emailCredentials.RefreshToken, offset, count);
+                    refreshToken = emailCredentials.RefreshToken;
+                    accessToken = mailTokenPair.AccessToken;
+                    break;
+            }            
+
+            var messages = await _emailService.GetMessages(emailCredentials.Email, accessToken, refreshToken, offset, count, emailProvider);
             return Ok(messages);
         }
 
@@ -167,14 +260,32 @@ namespace old_planner_api.src.Web.Controllers.View
         {
             var userId = _jwtService.GetTokenInfo(token).UserId;
             var mailCreadentials = await _userRepository.GetUserMailCredentials(userId);
+            string refreshToken = "";
+            string accessToken = "";
 
             var emailCredentials = mailCreadentials.FirstOrDefault(e => e.EmailProvider == emailProvider.ToString());
             if (emailCredentials == null)
                 return NotFound();
 
-            var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
+            switch(emailProvider)
+            {
+                case EmailProvider.Gmail:
+                    var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
+                    refreshToken = googleTokenResponse.RefreshToken;
+                    accessToken = googleTokenResponse.AccessToken;
+                    break;
+                
+                case EmailProvider.MailRu:
+                    var mailTokenPair = await _mailRuTokenService.UpdateToken(emailCredentials.RefreshToken);
+                    if(mailTokenPair == null)
+                        return BadRequest();
 
-            await _emailService.DeleteMessages(emailCredentials.Email, googleTokenResponse.AccessToken, new List<int>(messageIndexes));
+                    refreshToken = emailCredentials.RefreshToken;
+                    accessToken = mailTokenPair.AccessToken;
+                    break;
+            }      
+
+            await _emailService.DeleteMessages(emailCredentials.Email, accessToken, new List<int>(messageIndexes), emailProvider);
             return NoContent();
         }
 
@@ -202,15 +313,27 @@ namespace old_planner_api.src.Web.Controllers.View
                 return NotFound("Нет подключенных почтовых ящиков");
 
             string password = emailCredentials.AccessToken;
+            
+            EmailProvider emailProvider = EmailProvider.Gmail;
             if (emailCredentials.EmailProvider == EmailProvider.Gmail.ToString())
             {
                 var googleTokenResponse = await _googleTokenService.RefreshAccessTokenAsync(emailCredentials.RefreshToken);
                 password = googleTokenResponse.AccessToken;
             }
+            else if(emailCredentials.EmailProvider == EmailProvider.MailRu.ToString())
+            {
+                var mailTokenPair = await _mailRuTokenService.UpdateToken(emailCredentials.RefreshToken);
+                if(mailTokenPair == null)
+                    return BadRequest();
+
+                password = mailTokenPair.AccessToken;
+                emailProvider = EmailProvider.MailRu;
+            }
+
             else
                 return new UnsupportedMediaTypeResult();
 
-            await _emailService.SendMessage(emailCredentials.Email, senderUser.Nickname, body.ToEmail, recipientUser.Nickname, body.Subject, body.Message, password);
+            await _emailService.SendMessage(emailCredentials.Email, senderUser.Nickname, body.ToEmail, recipientUser.Nickname, body.Subject, body.Message, password, emailProvider);
             return Ok();
         }
 

@@ -15,6 +15,7 @@ using old_planner_api.src.Ws.App.Service;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using old_planner_api.src.Domain.Entities.Config;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace old_planner_api
 {
@@ -65,6 +66,9 @@ namespace old_planner_api
             services.AddEndpointsApiExplorer();
             services.AddDbContext<AppDbContext>();
 
+            services.AddDataProtection()
+                .PersistKeysToFileSystem(new DirectoryInfo("/keys"))
+                .SetApplicationName("old_planner_api");
             services
                 .AddAuthentication(options =>
                     {

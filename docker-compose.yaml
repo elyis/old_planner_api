@@ -10,6 +10,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=planner-db;Port=5432;Database=planner;Username=postgres;Password=postgres
     volumes:
       - Resources:/Resources
+      - data-protection-keys:/keys
 
   planner-db:
     image: postgres:latest
@@ -25,3 +26,4 @@ services:
 volumes:
   postgres-planner-data:
   Resources:
+  data-protection-keys:

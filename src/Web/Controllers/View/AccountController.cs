@@ -67,6 +67,7 @@ namespace old_planner_api.src.Web.Controllers.View
             var properties = new AuthenticationProperties
             {
                 RedirectUri = Url.Action("GoogleResponse"),
+                Items = { { "access_type", "offline" } }
             };
 
 

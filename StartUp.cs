@@ -102,9 +102,15 @@ namespace old_planner_api
             services.AddDistributedMemoryCache();
             services.AddSession(options =>
             {
-                options.IdleTimeout = TimeSpan.FromMinutes(15);
+                options.IdleTimeout = TimeSpan.FromMinutes(30);
                 options.Cookie.HttpOnly = true;
                 options.Cookie.IsEssential = true;
+            });
+
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+                options.SlidingExpiration = true;
             });
 
             services.AddAuthorization();
@@ -211,8 +217,8 @@ namespace old_planner_api
             app.UseRouting();
             app.UseWebSockets(webSocketOptions);
 
-            app.UseAuthentication();
             app.UseSession();
+            app.UseAuthentication();
             app.UseAuthorization();
 
             app.MapControllers();

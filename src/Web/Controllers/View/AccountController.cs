@@ -102,9 +102,6 @@ namespace old_planner_api.src.Web.Controllers.View
             var access_token = result.Properties.GetTokenValue("access_token");
             var refreshToken = result.Properties.GetTokenValue("refresh_token");
 
-            if (refreshToken == null || access_token == null)
-                return BadRequest("Очистите кэш");
-
             var isExist = await _authService.AccountIsExist(email);
             if (isExist)
             {

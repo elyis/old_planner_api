@@ -1,17 +1,13 @@
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
-
-WORKDIR /app
-
-COPY ./*.csproj ./
-
-RUN dotnet restore
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build-env
+WORKDIR /App
 
 COPY . ./
+RUN dotnet restore
+RUN dotnet publish -c Debug -o out
 
-RUN dotnet publish -o /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:7.0
-WORKDIR /app
-COPY --from=build /app/publish ./
-
+WORKDIR /App
+COPY --from=build-env /App/out .
+COPY local.pfx /https/local.pfx
 ENTRYPOINT ["dotnet", "old_planner_api.dll"]

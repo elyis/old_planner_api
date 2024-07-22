@@ -14,6 +14,7 @@ using old_planner_api.src.Ws.App.IService;
 using old_planner_api.src.Ws.App.Service;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using old_planner_api.src.Domain.Entities.Config;
+using Microsoft.EntityFrameworkCore;
 
 namespace old_planner_api
 {
@@ -172,6 +173,22 @@ namespace old_planner_api
                     .AsImplementedInterfaces()
                     .WithScopedLifetime();
             });
+        }
+
+        public void ApplyMigrations(WebApplication app)
+        {
+            using var scope = app.Services.CreateScope();
+            var services = scope.ServiceProvider;
+            try
+            {
+                var context = services.GetRequiredService<AppDbContext>();
+                context.Database.Migrate();
+            }
+            catch (Exception ex)
+            {
+                var logger = services.GetRequiredService<ILogger<Program>>();
+                logger.LogError(ex, "An error occurred while migrating the database.");
+            }
         }
 
         public void Configure(WebApplication app, IWebHostEnvironment env)

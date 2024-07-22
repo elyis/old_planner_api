@@ -1,0 +1,1 @@
+docker build -t old_planner_api .

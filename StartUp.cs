@@ -224,6 +224,7 @@ namespace old_planner_api
             app.UseSession();
             app.UseAuthentication();
             app.UseAuthorization();
+            ApplyMigrations(app);
 
             app.MapControllers();
             app.Run();
